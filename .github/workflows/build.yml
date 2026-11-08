@@ -121,9 +121,15 @@ jobs:
           OUTPUT_PATH="build/artifacts"
           rm -rf "$OUTPUT_PATH"
           mkdir -p "$OUTPUT_PATH"
-          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/Telegram.ipa; do
-            cp "$f" "$OUTPUT_PATH/KittyGram.ipa"
-          done
+          find -L bazel-bin/Telegram -maxdepth 1 -name '*.ipa' 2>/dev/null || true
+          find bazel-out -name '*.ipa' -not -path '*/external/*' 2>/dev/null | head -20 || true
+          IPA=$(find -L bazel-bin/Telegram -maxdepth 1 -name 'Telegram.ipa' 2>/dev/null | head -1)
+          if [ -z "$IPA" ]; then
+            IPA=$(find bazel-out -name 'Telegram.ipa' -not -path '*/external/*' 2>/dev/null | head -1)
+          fi
+          echo "IPA found: $IPA"
+          test -n "$IPA"
+          cp "$IPA" "$OUTPUT_PATH/KittyGram.ipa"
           ls -la "$OUTPUT_PATH"
 
       - name: Encrypt IPA
