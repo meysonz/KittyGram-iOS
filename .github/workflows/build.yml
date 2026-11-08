@@ -36,6 +36,24 @@ jobs:
           cp -R "$GITHUB_WORKSPACE" /Users/Shared/
           mv /Users/Shared/$(basename "$GITHUB_WORKSPACE") /Users/Shared/telegram-ios
 
+      - name: Download Bazel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          cd /Users/Shared/telegram-ios
+          BAZEL_VERSION=$(python3 -c 'import json;print(json.load(open("versions.json"))["bazel"].split(":")[0])')
+          BAZEL_SHA=$(python3 -c 'import json;print(json.load(open("versions.json"))["bazel"].split(":")[1])')
+          NAME="bazel-${BAZEL_VERSION}-darwin-arm64"
+          mkdir -p build-input
+          for i in 1 2 3 4 5; do
+            rm -f "build-input/$NAME"
+            gh release download "$BAZEL_VERSION" -R bazelbuild/bazel -p "$NAME" -D build-input && break
+            echo "download attempt $i failed"; sleep 15
+          done
+          chmod +x "build-input/$NAME"
+          echo "$BAZEL_SHA  build-input/$NAME" | shasum -a 256 -c -
+
       - name: Build the app
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
