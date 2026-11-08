@@ -54,6 +54,27 @@ jobs:
           chmod +x "build-input/$NAME"
           echo "$BAZEL_SHA  build-input/$NAME" | shasum -a 256 -c -
 
+      - name: Pre-seed Bazel with large GitHub assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          DISTDIR=/Users/Shared/bazel_distdir
+          REPOCACHE=/Users/Shared/bazel_repo_cache
+          mkdir -p "$DISTDIR" "$REPOCACHE"
+          # github.com release downloads of rules_rust return 504 for plain HTTP clients; the authenticated API works
+          for i in 1 2 3 4 5; do
+            rm -f "$DISTDIR/rules_rust-0.74.0.tar.gz"
+            gh release download 0.74.0 -R bazelbuild/rules_rust -p rules_rust-0.74.0.tar.gz -D "$DISTDIR" && break
+            echo "rules_rust download attempt $i failed"; sleep 15
+          done
+          SUM=$(shasum -a 256 "$DISTDIR/rules_rust-0.74.0.tar.gz" | cut -d' ' -f1)
+          test "$SUM" = "d8bcc1e111e98270dc03172e22ef7af9c2f94f3269801618a2b83d20890f8df5"
+          mkdir -p "$REPOCACHE/content_addressable/sha256/$SUM"
+          cp "$DISTDIR/rules_rust-0.74.0.tar.gz" "$REPOCACHE/content_addressable/sha256/$SUM/file"
+          printf 'common --distdir=%s\ncommon --repository_cache=%s\n' "$DISTDIR" "$REPOCACHE" > "$HOME/.bazelrc"
+          cat "$HOME/.bazelrc"
+
       - name: Build the app
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
