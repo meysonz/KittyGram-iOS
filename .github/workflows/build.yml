@@ -102,7 +102,7 @@ jobs:
 
           python3 build-system/Make/ImportCertificates.py --path build-system/fake-codesigning/certs
           ok=0
-          for attempt in 1 2 3 4 5; do
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
             if python3 -u build-system/Make/Make.py \
               --bazelUserRoot="$BAZEL_USER_ROOT" \
               build \
@@ -114,7 +114,7 @@ jobs:
               break
             fi
             echo "Build attempt $attempt failed, retrying"
-            sleep 30
+            sleep 120
           done
           [ "$ok" = 1 ]
 
