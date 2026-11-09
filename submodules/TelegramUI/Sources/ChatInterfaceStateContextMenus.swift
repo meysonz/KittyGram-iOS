@@ -1356,6 +1356,17 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }
         }
         
+        let kittyGramVersions = message.kittyGramEditVersions
+        if !kittyGramVersions.isEmpty {
+            let kittyGramCurrentText = message.text
+            let kittyGramIsRussian = chatPresentationInterfaceState.strings.primaryComponent.languageCode == "ru"
+            actions.append(.action(ContextMenuActionItem(text: kittyGramIsRussian ? "История" : "History", icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Time"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.default)
+                controllerInteraction.navigationController()?.pushViewController(kittyGramEditHistoryController(context: context, versions: kittyGramVersions, currentText: kittyGramCurrentText))
+            })))
+        }
         let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()
         if !messageText.isEmpty || richMessageMarkdown != nil || (resourceAvailable && isImage) || diceEmoji != nil {
             if !isExpired {

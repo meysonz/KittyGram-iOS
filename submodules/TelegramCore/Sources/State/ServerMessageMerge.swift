@@ -36,6 +36,19 @@ func mergedServerMessageUpdate(previous previousMessage: Message, updated messag
         }
     }
 
+    // KittyGram: carry the deleted marker over and record the previous text when the server edits a message.
+    if let deletedAttribute = previousMessage.attributes.first(where: { $0 is KittyGramDeletedMessageAttribute }), !updatedAttributes.contains(where: { $0 is KittyGramDeletedMessageAttribute }) {
+        updatedAttributes.append(deletedAttribute)
+    }
+    var kittyGramVersions = previousMessage.kittyGramEditVersions
+    if KittyGramSettings.shared.saveEdits && previousMessage.text != message.text && !previousMessage.text.isEmpty {
+        kittyGramVersions.append(KittyGramEditVersion(text: previousMessage.text, date: previousMessage.editedTime ?? previousMessage.timestamp))
+    }
+    updatedAttributes.removeAll(where: { $0 is KittyGramEditHistoryAttribute })
+    if !kittyGramVersions.isEmpty {
+        updatedAttributes.append(KittyGramEditHistoryAttribute(versions: kittyGramVersions))
+    }
+
     var updatedMedia = message.media
     if let previousPaidContent = previousMessage.media.first(where: { $0 is TelegramMediaPaidContent }) as? TelegramMediaPaidContent, case .full = previousPaidContent.extendedMedia.first {
         updatedMedia = previousMessage.media

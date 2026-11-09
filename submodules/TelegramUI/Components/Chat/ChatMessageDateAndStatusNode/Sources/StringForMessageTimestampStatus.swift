@@ -164,6 +164,16 @@ public func stringForMessageTimestampStatus(
     }
     
     var dateText = stringForMessageTimestamp(timestamp: timestamp, dateTimeFormat: dateTimeFormat)
+    if KittyGramSettings.shared.showSeconds {
+        let secondsText = String(format: "%02d", Int(timestamp % 60))
+        let pieces = dateText.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+        if let timePart = pieces.first, timePart.contains(":") {
+            dateText = String(timePart) + ":" + secondsText + (pieces.count > 1 ? " " + String(pieces[1]) : "")
+        }
+    }
+    if message.attributes.contains(where: { $0 is KittyGramDeletedMessageAttribute }) {
+        dateText = (strings.primaryComponent.languageCode == "ru" ? "удалено" : "deleted") + " " + dateText
+    }
     if timestamp == scheduleWhenOnlineTimestamp {
         dateText = "         "
     }

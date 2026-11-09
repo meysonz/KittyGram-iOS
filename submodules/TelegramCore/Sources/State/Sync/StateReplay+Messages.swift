@@ -274,6 +274,14 @@ extension ReplayContext {
     }
     
     func applyDeleteMessagesWithGlobalIds(_ ids: [Int32]) {
+        if KittyGramSettings.shared.saveDeleted {
+            let messageIds = transaction.messageIdsForGlobalIds(ids)
+            let kept = kittyGramMarkMessagesDeleted(transaction: transaction, ids: messageIds)
+            if !messageIds.isEmpty && kept.count == messageIds.count {
+                deletedMessageIds.append(contentsOf: ids.map { .global($0) })
+                return
+            }
+        }
         var resourceIds: [MediaResourceId] = []
         transaction.deleteMessagesWithGlobalIds(ids, forEachMedia: { media in
             addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
@@ -284,7 +292,16 @@ extension ReplayContext {
         deletedMessageIds.append(contentsOf: ids.map { .global($0) })
     }
     
-    func applyDeleteMessages(_ ids: [MessageId]) {
+    func applyDeleteMessages(_ allIds: [MessageId]) {
+        var ids = allIds
+        if KittyGramSettings.shared.saveDeleted {
+            let kept = kittyGramMarkMessagesDeleted(transaction: transaction, ids: allIds)
+            ids = allIds.filter { !kept.contains($0) }
+            if ids.isEmpty {
+                deletedMessageIds.append(contentsOf: allIds.map { .messageId($0) })
+                return
+            }
+        }
         _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
             self.addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
         })
