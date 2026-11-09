@@ -136,6 +136,29 @@ jobs:
           STRIP_DIR="$(mktemp -d)"
           unzip -q "$OUT_ABS/KittyGram.ipa" -d "$STRIP_DIR"
           rm -rf "$STRIP_DIR"/Payload/*.app/PlugIns "$STRIP_DIR"/Payload/*.app/Watch
+          # Own bundle id so the app never replaces the real Telegram; stop claiming the tg:// scheme
+          APP_PLIST="$(ls -d "$STRIP_DIR"/Payload/*.app)/Info.plist" python3 - <<'PYEOF'
+          import os, plistlib
+          OLD = "ph.telegra.Telegraph"
+          NEW = "com.meysonz.kittygram"
+          path = os.environ["APP_PLIST"]
+          with open(path, "rb") as f:
+              data = plistlib.load(f)
+          def fix(v):
+              if isinstance(v, str):
+                  return v.replace(OLD, NEW)
+              if isinstance(v, list):
+                  return [fix(x) for x in v]
+              if isinstance(v, dict):
+                  return {fix(k): fix(x) for k, x in v.items()}
+              return v
+          data = fix(data)
+          for t in data.get("CFBundleURLTypes", []):
+              t["CFBundleURLSchemes"] = [x for x in t.get("CFBundleURLSchemes", []) if x != "tg"]
+          with open(path, "wb") as f:
+              plistlib.dump(data, f)
+          print("bundle id:", data.get("CFBundleIdentifier"))
+          PYEOF
           (cd "$STRIP_DIR" && zip -q -r -y "$OUT_ABS/KittyGram-sideload.ipa" Payload)
           rm -rf "$STRIP_DIR"
           ls -la "$OUTPUT_PATH"
