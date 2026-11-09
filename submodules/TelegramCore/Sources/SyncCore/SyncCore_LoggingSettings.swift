@@ -5,10 +5,11 @@ public final class LoggingSettings: Codable {
     public let logToConsole: Bool
     public let redactSensitiveData: Bool
     
+    // KittyGram: keep a log file by default so a sideloaded build can be diagnosed from the device.
     #if DEBUG
-    public static var defaultSettings = LoggingSettings(logToFile: false, logToConsole: false, redactSensitiveData: true)
+    public static var defaultSettings = LoggingSettings(logToFile: true, logToConsole: false, redactSensitiveData: false)
     #else
-    public static var defaultSettings = LoggingSettings(logToFile: false, logToConsole: false, redactSensitiveData: true)
+    public static var defaultSettings = LoggingSettings(logToFile: true, logToConsole: false, redactSensitiveData: false)
     #endif
     
     public init(logToFile: Bool, logToConsole: Bool, redactSensitiveData: Bool) {
