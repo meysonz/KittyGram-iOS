@@ -2,6 +2,14 @@ name: Build KittyGram
 
 on:
   workflow_dispatch:
+    inputs:
+      configuration:
+        description: "Bazel configuration (debug_arm64 builds much faster, release_arm64 is optimized)"
+        type: choice
+        default: debug_arm64
+        options:
+          - debug_arm64
+          - release_arm64
 
 jobs:
   build:
@@ -75,10 +83,20 @@ jobs:
           printf 'common --distdir=%s\ncommon --repository_cache=%s\n' "$DISTDIR" "$REPOCACHE" > "$HOME/.bazelrc"
           cat "$HOME/.bazelrc"
 
+      - name: Restore Bazel cache
+        id: bazelcache
+        uses: actions/cache/restore@v4
+        with:
+          path: /Users/Shared/bazel_disk_cache
+          key: bazel-${{ inputs.configuration }}-${{ github.run_id }}
+          restore-keys: |
+            bazel-${{ inputs.configuration }}-
+
       - name: Build the app
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          CONFIGURATION: ${{ inputs.configuration }}
         run: |
           set -x
           cd /Users/Shared/telegram-ios
@@ -105,10 +123,11 @@ jobs:
           for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
             if python3 -u build-system/Make/Make.py \
               --bazelUserRoot="$BAZEL_USER_ROOT" \
+              --cacheDir=/Users/Shared/bazel_disk_cache \
               build \
               --configurationPath="build-system/kittygram-configuration.json" \
               --codesigningInformationPath=build-system/fake-codesigning \
-              --configuration=release_arm64 \
+              --configuration="${CONFIGURATION:-debug_arm64}" \
               --buildNumber="$BUILD_NUMBER"; then
               ok=1
               break
@@ -162,6 +181,13 @@ jobs:
           (cd "$STRIP_DIR" && zip -q -r -y "$OUT_ABS/KittyGram-sideload.ipa" Payload)
           rm -rf "$STRIP_DIR"
           ls -la "$OUTPUT_PATH"
+
+      - name: Save Bazel cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /Users/Shared/bazel_disk_cache
+          key: bazel-${{ inputs.configuration }}-${{ github.run_id }}
 
       - name: Encrypt IPA
         env:
