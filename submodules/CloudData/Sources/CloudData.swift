@@ -14,7 +14,11 @@ private func fetchRawData(prefix: String) -> Signal<Data, FetchError> {
     // KittyGram: a sideloaded build has no iCloud entitlement, and CKContainer.default() traps the whole app
     // (EXC_BREAKPOINT inside CloudKit) the moment the emergency data-center lookup runs. Report a failure instead.
     return Signal { subscriber in
-        subscriber.putError(.generic)
+        // Answer from another queue after a pause: an immediate answer made the caller's `restart` re-subscribe
+        // synchronously, endlessly, and overflowed the stack (EXC_BAD_ACCESS in Subscriber.putError).
+        Queue.concurrentDefaultQueue().after(1.0, {
+            subscriber.putError(.generic)
+        })
         return ActionDisposable {
         }
     }
