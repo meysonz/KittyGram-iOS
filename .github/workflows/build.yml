@@ -130,6 +130,14 @@ jobs:
           echo "IPA found: $IPA"
           test -n "$IPA"
           cp "$IPA" "$OUTPUT_PATH/KittyGram.ipa"
+
+          # Sideload variant for a free Apple ID: no app extensions, no watch app
+          OUT_ABS="$(pwd)/$OUTPUT_PATH"
+          STRIP_DIR="$(mktemp -d)"
+          unzip -q "$OUT_ABS/KittyGram.ipa" -d "$STRIP_DIR"
+          rm -rf "$STRIP_DIR"/Payload/*.app/PlugIns "$STRIP_DIR"/Payload/*.app/Watch
+          (cd "$STRIP_DIR" && zip -q -r -y "$OUT_ABS/KittyGram-sideload.ipa" Payload)
+          rm -rf "$STRIP_DIR"
           ls -la "$OUTPUT_PATH"
 
       - name: Encrypt IPA
@@ -137,7 +145,7 @@ jobs:
           IPA_ZIP_PASSWORD: ${{ secrets.IPA_ZIP_PASSWORD }}
         run: |
           cd /Users/Shared/telegram-ios/build/artifacts
-          zip -P "$IPA_ZIP_PASSWORD" KittyGram-ipa.zip KittyGram.ipa
+          zip -P "$IPA_ZIP_PASSWORD" KittyGram-ipa.zip KittyGram.ipa KittyGram-sideload.ipa
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
