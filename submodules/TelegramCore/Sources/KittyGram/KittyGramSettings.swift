@@ -89,6 +89,18 @@ public final class KittyGramSettings: @unchecked Sendable {
         set { self.write("homeShortcut", newValue) }
     }
 
+    /// 0 = never, 1 = only in ghost mode, 2 = always.
+    public var sendWithoutSound: Int {
+        get {
+            let fullKey = "kittygram.sendWithoutSound"
+            return self.defaults.integer(forKey: fullKey)
+        }
+        set {
+            self.defaults.set(newValue, forKey: "kittygram.sendWithoutSound")
+            NotificationCenter.default.post(name: KittyGramSettings.didChangeNotification, object: nil)
+        }
+    }
+
     // MARK: Saved messages
 
     public var saveDeleted: Bool {

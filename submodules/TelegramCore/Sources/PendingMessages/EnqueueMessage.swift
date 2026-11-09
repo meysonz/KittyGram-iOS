@@ -758,7 +758,8 @@ private func opportunisticallyTransformOutgoingMedia(network: Network, postbox: 
     return combineLatest(signals)
 }
 
-public func enqueueMessages(account: Account, peerId: PeerId, messages: [EnqueueMessage]) -> Signal<[MessageId?], NoError> {
+public func enqueueMessages(account: Account, peerId: PeerId, messages originalMessages: [EnqueueMessage]) -> Signal<[MessageId?], NoError> {
+    let messages = kittyGramApplySilentSending(originalMessages)
     let signal: Signal<[(Bool, EnqueueMessage)], NoError>
     if let transformOutgoingMessageMedia = account.transformOutgoingMessageMedia {
         signal = opportunisticallyTransformOutgoingMedia(network: account.network, postbox: account.postbox, transformOutgoingMessageMedia: transformOutgoingMessageMedia, messages: messages, userInteractive: true)

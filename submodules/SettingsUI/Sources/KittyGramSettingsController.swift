@@ -19,18 +19,19 @@ private final class KittyGramSettingsArguments {
 private enum KittyGramSettingsEntry: ItemListNodeEntry {
     case header(Int32, String, Int32)
     case toggle(Int32, String, String, Bool, Int32)
+    case choice(Int32, String, String, String, Int32)
     case footer(Int32, String, Int32)
 
     var section: ItemListSectionId {
         switch self {
-        case let .header(_, _, section), let .toggle(_, _, _, _, section), let .footer(_, _, section):
+        case let .header(_, _, section), let .toggle(_, _, _, _, section), let .choice(_, _, _, _, section), let .footer(_, _, section):
             return section
         }
     }
 
     var stableId: Int32 {
         switch self {
-        case let .header(id, _, _), let .toggle(id, _, _, _, _), let .footer(id, _, _):
+        case let .header(id, _, _), let .toggle(id, _, _, _, _), let .choice(id, _, _, _, _), let .footer(id, _, _):
             return id
         }
     }
@@ -47,6 +48,10 @@ private enum KittyGramSettingsEntry: ItemListNodeEntry {
         case let .toggle(_, key, title, value, section):
             return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, sectionId: section, style: .blocks, updated: { updatedValue in
                 arguments.toggle(key, updatedValue)
+            })
+        case let .choice(_, key, title, label, section):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: title, label: label, sectionId: section, style: .blocks, action: {
+                arguments.toggle(key, true)
             })
         case let .footer(_, text, section):
             return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: section)
@@ -79,6 +84,8 @@ private func kittyGramSettingsEntries(isRussian: Bool) -> [KittyGramSettingsEntr
 
     entries.append(.toggle(id(), "readOnInteract", tr("Read on Interact", "Прочитать при действии"), settings.readOnInteract, 1))
     entries.append(.toggle(id(), "homeShortcut", tr("Home Screen Shortcut", "Ярлык на экране «Домой»"), settings.homeShortcut, 1))
+    let soundLabels = [tr("Never", "Никогда"), tr("In Ghost Mode", "В режиме призрака"), tr("Always", "Всегда")]
+    entries.append(.choice(id(), "sendWithoutSound", tr("Send without Sound", "Отправлять без звука"), soundLabels[max(0, min(2, settings.sendWithoutSound))], 1))
     entries.append(.footer(id(), tr("The shortcut adds \"Enter Ghost Mode\" to the app icon menu. Launching from it turns every ghost option on.", "Ярлык добавляет «Войти в режиме призрака» в меню иконки приложения. Запуск через него включает все функции призрака."), 1))
 
     // Saved messages
@@ -115,6 +122,8 @@ private func applyKittyGramToggle(key: String, value: Bool) {
         settings.readOnInteract = value
     case "homeShortcut":
         settings.homeShortcut = value
+    case "sendWithoutSound":
+        settings.sendWithoutSound = (settings.sendWithoutSound + 1) % 3
     case "saveDeleted":
         settings.saveDeleted = value
     case "saveEdits":
