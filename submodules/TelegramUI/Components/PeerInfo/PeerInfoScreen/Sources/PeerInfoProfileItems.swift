@@ -103,6 +103,8 @@ func infoItems(
         let ItemPersonalChannel = 2001
         let ItemPhoneNumber = 3000
         let ItemUsername = 3001
+        let ItemKittyId = 3010
+        let ItemKittyRegistered = 3011
         let ItemBirthdate = 3002
         let ItemAbout = 3003
         let ItemNote = 3004
@@ -177,6 +179,18 @@ func infoItems(
             ))
         }
         
+        if KittyGramSettings.shared.showPeerId {
+            let kittyGramLanguageCode = presentationData.strings.primaryComponent.languageCode
+            let kittyGramUserId = user.id.id._internalGetInt64Value()
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemKittyId, label: "ID", text: "\(kittyGramUserId)", textColor: .primary, action: nil, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
+            if let registered = kittyGramEstimatedRegistrationText(userId: kittyGramUserId, languageCode: kittyGramLanguageCode) {
+                items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemKittyRegistered, label: kittyGramLanguageCode == "ru" ? "Регистрация (оценка)" : "Registered (estimate)", text: registered, textColor: .primary, action: nil, requestLayout: { animated in
+                    interaction.requestLayout(animated)
+                }))
+            }
+        }
         if let phone = user.phone {
             let formattedPhone = formatPhoneNumber(context: context, number: phone)
             let label: String

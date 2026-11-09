@@ -2928,6 +2928,8 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                                     context.switchAccount()
                                 case .appIcon:
                                     context.openAppIcon()
+                                case .ghostMode:
+                                    KittyGramSettings.shared.ghostMode = true
                             }
                         }
                     }

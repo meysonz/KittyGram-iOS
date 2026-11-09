@@ -2,6 +2,7 @@ import Foundation
 import UIKit
 import TelegramPresentationData
 import DeviceAccess
+import TelegramCore
 
 enum ApplicationShortcutItemType: String {
     case search
@@ -10,6 +11,7 @@ enum ApplicationShortcutItemType: String {
     case savedMessages
     case account
     case appIcon
+    case ghostMode
 }
 
 struct ApplicationShortcutItem: Equatable {
@@ -35,12 +37,24 @@ extension ApplicationShortcutItem {
                 icon = UIApplicationShortcutIcon(templateImageName: "Shortcuts/Account")
             case .appIcon:
                 icon = UIApplicationShortcutIcon(templateImageName: "Shortcuts/AppIcon")
+            case .ghostMode:
+                icon = UIApplicationShortcutIcon(systemImageName: "eye.slash")
         }
         return UIApplicationShortcutItem(type: self.type.rawValue, localizedTitle: self.title, localizedSubtitle: self.subtitle, icon: icon, userInfo: nil)
     }
 }
 
 func applicationShortcutItems(strings: PresentationStrings, otherAccountName: String?) -> [ApplicationShortcutItem] {
+    var items = baseApplicationShortcutItems(strings: strings, otherAccountName: otherAccountName)
+    if KittyGramSettings.shared.homeShortcut {
+        // KittyGram: replace the last quick action with "Enter Ghost Mode" (iOS shows at most four).
+        let title = strings.primaryComponent.languageCode == "ru" ? "Войти в режиме призрака" : "Enter Ghost Mode"
+        items = Array(items.prefix(3)) + [ApplicationShortcutItem(type: .ghostMode, title: title, subtitle: nil)]
+    }
+    return items
+}
+
+private func baseApplicationShortcutItems(strings: PresentationStrings, otherAccountName: String?) -> [ApplicationShortcutItem] {
     if let otherAccountName = otherAccountName {
         return [
             ApplicationShortcutItem(type: .search, title: strings.Common_Search, subtitle: nil),

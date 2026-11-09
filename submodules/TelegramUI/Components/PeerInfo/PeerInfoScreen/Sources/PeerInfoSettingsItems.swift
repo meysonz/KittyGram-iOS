@@ -251,6 +251,9 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
     items[.shortcuts]!.append(PeerInfoScreenDisclosureItem(id: 4, text: presentationData.strings.Settings_ChatFolders, icon: PresentationResourcesSettings.chatFolders, action: {
         interaction.openSettings(.chatFolders)
     }))
+    items[.shortcuts]!.append(PeerInfoScreenDisclosureItem(id: 40, text: "KittyGram", icon: PresentationResourcesSettings.language, action: {
+        interaction.openSettings(.kittyGram)
+    }))
     
     let notificationsWarning: Bool
     if let settings = data.globalSettings {
