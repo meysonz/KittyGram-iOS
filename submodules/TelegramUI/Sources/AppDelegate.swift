@@ -59,6 +59,9 @@ import MTProtoRustEngine
 import AlertComponent
 #endif
 
+// KittyGram: Siri needs an entitlement that free sideload signing cannot grant.
+private var kittyGramSiriUnavailable: Bool { return true }
+
 private let handleVoipNotifications = false
 
 private func isTonTransferUrl(_ url: URL) -> Bool {
@@ -965,7 +968,11 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                 }
             })
         }, requestSiriAuthorization: { completion in
-            if #available(iOS 10, *) {
+            // KittyGram: a sideloaded build has no Siri entitlement, and any INPreferences call aborts the app
+            // (-[INPreferences _THROW_EXCEPTION_FOR_PROCESS_MISSING_ENTITLEMENT_com_apple_developer_siri]).
+            if kittyGramSiriUnavailable {
+                completion(false)
+            } else if #available(iOS 10, *) {
                 INPreferences.requestSiriAuthorization { status in
                     if case .authorized = status {
                         completion(true)
@@ -977,7 +984,9 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
                 completion(false)
             }
         }, siriAuthorization: {
-            if buildConfig.isSiriEnabled {
+            if kittyGramSiriUnavailable {
+                return .denied
+            } else if buildConfig.isSiriEnabled {
                 if #available(iOS 10, *) {
                     switch INPreferences.siriAuthorizationStatus() {
                     case .authorized:
