@@ -83,11 +83,6 @@ public final class KittyGramSettings: @unchecked Sendable {
         set { self.write("readOnInteract", newValue) }
     }
 
-    /// Show the "Enter Ghost Mode" quick action on the app icon.
-    public var homeShortcut: Bool {
-        get { return self.read("homeShortcut", true) }
-        set { self.write("homeShortcut", newValue) }
-    }
 
     /// 0 = never, 1 = only in ghost mode, 2 = always.
     public var sendWithoutSound: Int {
@@ -116,6 +111,13 @@ public final class KittyGramSettings: @unchecked Sendable {
     public var saveInBots: Bool {
         get { return self.read("saveInBots", false) }
         set { self.write("saveInBots", newValue) }
+    }
+
+    /// View self-destructing (timer / view-once) photos, videos and voice messages without starting their timer and
+    /// without telling the sender they were opened.
+    public var keepSelfDestructing: Bool {
+        get { return self.read("keepSelfDestructing", true) }
+        set { self.write("keepSelfDestructing", newValue) }
     }
 
     // MARK: General

@@ -46,11 +46,9 @@ extension ApplicationShortcutItem {
 
 func applicationShortcutItems(strings: PresentationStrings, otherAccountName: String?) -> [ApplicationShortcutItem] {
     var items = baseApplicationShortcutItems(strings: strings, otherAccountName: otherAccountName)
-    if KittyGramSettings.shared.homeShortcut {
-        // KittyGram: replace the last quick action with "Enter Ghost Mode" (iOS shows at most four).
-        let title = strings.primaryComponent.languageCode == "ru" ? "Войти в режиме призрака" : "Enter Ghost Mode"
-        items = Array(items.prefix(3)) + [ApplicationShortcutItem(type: .ghostMode, title: title, subtitle: nil)]
-    }
+    // KittyGram: replace the last quick action with "Enter Ghost Mode" (iOS shows at most four).
+    let title = strings.primaryComponent.languageCode == "ru" ? "Войти в режиме призрака" : "Enter Ghost Mode"
+    items = Array(items.prefix(3)) + [ApplicationShortcutItem(type: .ghostMode, title: title, subtitle: nil)]
     return items
 }
 

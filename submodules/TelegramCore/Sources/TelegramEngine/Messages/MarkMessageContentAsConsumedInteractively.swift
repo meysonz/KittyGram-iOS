@@ -6,6 +6,10 @@ import SwiftSignalKit
 func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messageId: MessageId) -> Signal<Void, NoError> {
     return postbox.transaction { transaction -> Void in
         if let message = transaction.getMessage(messageId), message.flags.contains(.Incoming) {
+            if KittyGramSettings.shared.keepSelfDestructing && message.id.peerId.namespace != Namespaces.Peer.SecretChat && message.isSelfExpiring {
+                // KittyGram: keep timer / view-once media. No countdown, no "opened" report to the sender.
+                return
+            }
             var updateMessage = false
             var updatedAttributes = message.attributes
             

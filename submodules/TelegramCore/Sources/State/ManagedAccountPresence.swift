@@ -43,11 +43,22 @@ private final class AccountPresenceManagerImpl {
     }
     
     private func updatePresence(_ isOnline: Bool) {
-        if isOnline && KittyGramSettings.shared.hideOnline {
+        let kittyGram = KittyGramSettings.shared
+        if isOnline && kittyGram.hideOnline {
+            // Ghost mode: never report online. With "go offline automatically" also make sure the server shows offline.
+            if kittyGram.offlineAfterOnline {
+                self.currentRequestDisposable.set(self.network.request(Api.functions.account.updateStatus(offline: .boolTrue)).start(error: { _ in }))
+            }
             return
         }
         let request: Signal<Api.Bool, MTRpcError>
-        if isOnline {
+        if isOnline && kittyGram.offlineAfterOnline {
+            // Show up online for a moment (the server needs it for the session), then go offline at once and stay there.
+            self.onlineTimer?.invalidate()
+            self.onlineTimer = nil
+            request = self.network.request(Api.functions.account.updateStatus(offline: .boolFalse))
+            |> then(self.network.request(Api.functions.account.updateStatus(offline: .boolTrue)))
+        } else if isOnline {
             let timer = SignalKitTimer(timeout: 30.0, repeat: false, completion: { [weak self] in
                 guard let strongSelf = self else {
                     return

@@ -251,8 +251,8 @@ private func validatePeerReadState(network: Network, postbox: Postbox, stateMana
     return maybeAppliedReadState
 }
 
-private func pushPeerReadState(network: Network, postbox: Postbox, stateManager: AccountStateManager, peerId: PeerId, readState: PeerReadState) -> Signal<PeerReadState, PeerReadStateValidationError> {
-    if KittyGramSettings.shared.hideRead {
+private func pushPeerReadState(network: Network, postbox: Postbox, stateManager: AccountStateManager, peerId: PeerId, readState: PeerReadState, kittyGramForce: Bool = false) -> Signal<PeerReadState, PeerReadStateValidationError> {
+    if KittyGramSettings.shared.hideRead && !kittyGramForce {
         // KittyGram ghost mode: the chat stays read on this device, the server is not told.
         return .single(readState)
     }
@@ -426,6 +426,31 @@ private func pushPeerReadState(network: Network, postbox: Postbox, stateManager:
     }
     
     return verifiedState
+}
+
+/// KittyGram: tells the server the chat's current local read state even while read receipts are hidden
+/// (the "Read" menu item and "Read on Reply").
+func kittyGramPushPeerReadState(network: Network, postbox: Postbox, stateManager: AccountStateManager, peerId: PeerId) -> Signal<Never, NoError> {
+    return postbox.transaction { transaction -> PeerReadState? in
+        if let readStates = transaction.getPeerReadStates(peerId) {
+            for (namespace, readState) in readStates {
+                if namespace == Namespaces.Message.Cloud || namespace == Namespaces.Message.SecretIncoming {
+                    return readState
+                }
+            }
+        }
+        return nil
+    }
+    |> mapToSignal { readState -> Signal<Never, NoError> in
+        guard let readState = readState else {
+            return .complete()
+        }
+        return pushPeerReadState(network: network, postbox: postbox, stateManager: stateManager, peerId: peerId, readState: readState, kittyGramForce: true)
+        |> ignoreValues
+        |> `catch` { _ -> Signal<Never, NoError> in
+            return .complete()
+        }
+    }
 }
 
 func synchronizePeerReadState(network: Network, postbox: Postbox, stateManager: AccountStateManager, peerId: PeerId, push: Bool, validate: Bool) -> Signal<Never, PeerReadStateValidationError> {

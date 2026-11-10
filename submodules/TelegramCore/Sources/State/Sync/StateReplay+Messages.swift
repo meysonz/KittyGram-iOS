@@ -273,13 +273,19 @@ extension ReplayContext {
         deleteEphemeralMessages(transaction: transaction, peerId: peerId, ids: ids)
     }
     
-    func applyDeleteMessagesWithGlobalIds(_ ids: [Int32]) {
+    func applyDeleteMessagesWithGlobalIds(_ allIds: [Int32]) {
+        var ids = allIds
         if KittyGramSettings.shared.saveDeleted {
-            let messageIds = transaction.messageIdsForGlobalIds(ids)
+            let messageIds = transaction.messageIdsForGlobalIds(allIds)
             let kept = kittyGramMarkMessagesDeleted(transaction: transaction, ids: messageIds)
-            if !messageIds.isEmpty && kept.count == messageIds.count {
-                deletedMessageIds.append(contentsOf: ids.map { .global($0) })
-                return
+            if !kept.isEmpty {
+                // Global ids are the message ids of private chats and basic groups.
+                let keptGlobalIds = Set(kept.map { $0.id })
+                ids = allIds.filter { !keptGlobalIds.contains($0) }
+                if ids.isEmpty {
+                    deletedMessageIds.append(contentsOf: allIds.map { .global($0) })
+                    return
+                }
             }
         }
         var resourceIds: [MediaResourceId] = []

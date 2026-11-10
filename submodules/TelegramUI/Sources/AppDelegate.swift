@@ -1012,24 +1012,15 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             self.window?.rootViewController?.dismiss(animated: true, completion: nil)
         }, getAvailableAlternateIcons: {
             if #available(iOS 10.3, *) {
-                var icons = [
-                    PresentationAppIcon(name: "BlueIcon", imageName: "BlueIcon", isDefault: buildConfig.isAppStoreBuild),
-                    PresentationAppIcon(name: "New2", imageName: "New2"),
-                    PresentationAppIcon(name: "New1", imageName: "New1"),
-                    PresentationAppIcon(name: "BlackIcon", imageName: "BlackIcon"),
-                    PresentationAppIcon(name: "BlueClassicIcon", imageName: "BlueClassicIcon"),
-                    PresentationAppIcon(name: "BlackClassicIcon", imageName: "BlackClassicIcon"),
-                    PresentationAppIcon(name: "BlueFilledIcon", imageName: "BlueFilledIcon"),
-                    PresentationAppIcon(name: "BlackFilledIcon", imageName: "BlackFilledIcon")
+                // KittyGram: the primary icon (Lavender) and KittyGram's alternate icons.
+                let icons = [
+                    PresentationAppIcon(name: "KittyLavenderIcon", imageName: "KittyLavenderIcon", isDefault: true),
+                    PresentationAppIcon(name: "KittySkyIcon", imageName: "KittySkyIcon"),
+                    PresentationAppIcon(name: "KittyMonoIcon", imageName: "KittyMonoIcon"),
+                    PresentationAppIcon(name: "KittyCherryIcon", imageName: "KittyCherryIcon"),
+                    PresentationAppIcon(name: "KittyCatFaceIcon", imageName: "KittyCatFaceIcon"),
+                    PresentationAppIcon(name: "KittyCatTailIcon", imageName: "KittyCatTailIcon")
                 ]
-                if buildConfig.isInternalBuild {
-                    icons.append(PresentationAppIcon(name: "WhiteFilledIcon", imageName: "WhiteFilledIcon"))
-                }
-                
-                icons.append(PresentationAppIcon(name: "Premium", imageName: "Premium", isPremium: true))
-                icons.append(PresentationAppIcon(name: "PremiumTurbo", imageName: "PremiumTurbo", isPremium: true))
-                icons.append(PresentationAppIcon(name: "PremiumBlack", imageName: "PremiumBlack", isPremium: true))
-                
                 return icons
             } else {
                 return []

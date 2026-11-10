@@ -326,19 +326,14 @@ filegroup(
     ]),
 )
 
+# KittyGram: only KittyGram's own icons; the Telegram-branded ones are not bundled.
 alternate_icon_folders = [
-    "BlackIcon",
-    "BlackClassicIcon",
-    "BlackFilledIcon",
-    "BlueIcon",
-    "BlueClassicIcon",
-    "BlueFilledIcon",
-    "WhiteFilledIcon",
-    "New1",
-    "New2",
-    "Premium",
-    "PremiumBlack",
-    "PremiumTurbo",
+    "KittyLavenderIcon",
+    "KittySkyIcon",
+    "KittyMonoIcon",
+    "KittyCherryIcon",
+    "KittyCatFaceIcon",
+    "KittyCatTailIcon",
 ]
 
 composer_icon_folders = ["Telegram"]

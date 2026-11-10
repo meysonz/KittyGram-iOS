@@ -14,6 +14,9 @@ import TelegramStringFormatting
 import PeerNameColorItem
 import WalletContext
 
+// KittyGram: own row icon (white plane with cat ears on the lavender gradient).
+private let kittyGramSettingsIcon = renderSettingsIcon(name: "Item List/Icons/KittyGram", backgroundColors: [UIColor(rgb: 0x7B4AE8), UIColor(rgb: 0xB9A0FF)])
+
 enum SettingsSection: Int, CaseIterable {
     case edit
     case phone
@@ -251,7 +254,7 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
     items[.shortcuts]!.append(PeerInfoScreenDisclosureItem(id: 4, text: presentationData.strings.Settings_ChatFolders, icon: PresentationResourcesSettings.chatFolders, action: {
         interaction.openSettings(.chatFolders)
     }))
-    items[.shortcuts]!.append(PeerInfoScreenDisclosureItem(id: 40, text: "KittyGram", icon: PresentationResourcesSettings.language, action: {
+    items[.shortcuts]!.append(PeerInfoScreenDisclosureItem(id: 40, text: "KittyGram", icon: kittyGramSettingsIcon, action: {
         interaction.openSettings(.kittyGram)
     }))
     

@@ -1367,6 +1367,17 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 controllerInteraction.navigationController()?.pushViewController(kittyGramEditHistoryController(context: context, versions: kittyGramVersions, currentText: kittyGramCurrentText))
             })))
         }
+        if KittyGramSettings.shared.hideRead && message.flags.contains(.Incoming) && message.id.namespace == Namespaces.Message.Cloud {
+            // KittyGram: with read receipts hidden, read the chat up to this message on purpose.
+            let kittyGramIsRussian = chatPresentationInterfaceState.strings.primaryComponent.languageCode == "ru"
+            let kittyGramIndex = message.index
+            actions.append(.action(ContextMenuActionItem(text: kittyGramIsRussian ? "Прочитать" : "Read Message", icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Eye"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.default)
+                let _ = context.engine.messages.kittyGramReadMessages(upTo: kittyGramIndex).start()
+            })))
+        }
         let isCopyProtected = chatPresentationInterfaceState.copyProtectionEnabled || message.isCopyProtected()
         if !messageText.isEmpty || richMessageMarkdown != nil || (resourceAvailable && isImage) || diceEmoji != nil {
             if !isExpired {

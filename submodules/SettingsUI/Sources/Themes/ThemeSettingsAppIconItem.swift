@@ -413,6 +413,18 @@ class ThemeSettingsAppIconItemNode: ListViewItemNode, ItemListItemNode {
                                     name = item.strings.Appearance_AppIconBlack
                                 case "PremiumTurbo":
                                     name = item.strings.Appearance_AppIconTurbo
+                                case "KittyLavenderIcon":
+                                    name = item.strings.primaryComponent.languageCode == "ru" ? "Лаванда" : "Lavender"
+                                case "KittySkyIcon":
+                                    name = item.strings.primaryComponent.languageCode == "ru" ? "Небо" : "Sky"
+                                case "KittyMonoIcon":
+                                    name = item.strings.primaryComponent.languageCode == "ru" ? "Монохром" : "Mono"
+                                case "KittyCherryIcon":
+                                    name = item.strings.primaryComponent.languageCode == "ru" ? "Вишня" : "Cherry"
+                                case "KittyCatFaceIcon":
+                                    name = item.strings.primaryComponent.languageCode == "ru" ? "Мордочка" : "Cat Face"
+                                case "KittyCatTailIcon":
+                                    name = item.strings.primaryComponent.languageCode == "ru" ? "Котик" : "Kitty"
                                 default:
                                     name = icon.name
                             }

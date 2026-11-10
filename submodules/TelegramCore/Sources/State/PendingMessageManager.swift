@@ -2216,6 +2216,7 @@ public final class PendingMessageManager {
     }
     
     private func applySentMessage(postbox: Postbox, stateManager: AccountStateManager, message: Message, content: PendingMessageUploadedContentAndReuploadInfo, result: Api.Updates) -> Signal<Void, NoError> {
+        kittyGramAfterMessageSent(network: self.network, postbox: postbox, stateManager: stateManager, peerId: message.id.peerId)
         if let _ = message.peers[message.id.peerId] as? TelegramChannel {
             for attribute in message.attributes {
                 if let attribute = attribute as? PaidStarsMessageAttribute {
@@ -2280,6 +2281,9 @@ public final class PendingMessageManager {
     }
     
     private func applySentGroupMessages(postbox: Postbox, stateManager: AccountStateManager, messages: [Message], result: Api.Updates) -> Signal<Void, NoError> {
+        if let message = messages.first {
+            kittyGramAfterMessageSent(network: self.network, postbox: postbox, stateManager: stateManager, peerId: message.id.peerId)
+        }
         var namespace = Namespaces.Message.Cloud
         if let message = messages.first {
             if let channel = message.peers[message.id.peerId] as? TelegramChannel, channel.isMonoForum {
