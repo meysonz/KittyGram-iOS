@@ -19,6 +19,7 @@ import TooltipUI
 import ChatEntityKeyboardInputNode
 import notify
 import TelegramNotices
+import PresentationDataUtils
 
 func hasFirstResponder(_ view: UIView) -> Bool {
     if view.isFirstResponder {
@@ -2258,6 +2259,8 @@ public class StoryContainerScreen: ViewControllerComponentContainer, KeyShortcut
     private let context: AccountContext
     private var didAnimateIn: Bool = false
     private var isDismissed: Bool = false
+    /// KittyGram "Story Ghost Mode Alert": ask once, when the viewer appears, before any view is reported.
+    private var kittyGramAskGhostMode: Bool = false
     
     private let focusedItemPromise = Promise<EngineStoryId?>()
     public var focusedItem: Signal<EngineStoryId?, NoError> {
@@ -2290,6 +2293,12 @@ public class StoryContainerScreen: ViewControllerComponentContainer, KeyShortcut
         self.supportedOrientations = ViewControllerSupportedOrientations(regularSize: .all, compactSize: [.portrait])
         
         self.context.sharedContext.hasPreloadBlockingContent.set(.single(true))
+
+        let kittyGram = KittyGramSettings.shared
+        if kittyGram.storyGhostAlert && !kittyGram.hideStoryViews {
+            kittyGram.storyViewsOnHold = true
+            self.kittyGramAskGhostMode = true
+        }
     }
     
     required public init(coder aDecoder: NSCoder) {
@@ -2299,6 +2308,9 @@ public class StoryContainerScreen: ViewControllerComponentContainer, KeyShortcut
     deinit {
         self.context.sharedContext.hasPreloadBlockingContent.set(.single(false))
         self.focusedItemPromise.set(.single(nil))
+        if self.kittyGramAskGhostMode {
+            KittyGramSettings.shared.storyViewsOnHold = false
+        }
     }
     
     override public func containerLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
@@ -2316,7 +2328,25 @@ public class StoryContainerScreen: ViewControllerComponentContainer, KeyShortcut
             if let componentView = self.node.hostView.componentView as? StoryContainerScreenComponent.View {
                 componentView.animateIn()
             }
+            if self.kittyGramAskGhostMode {
+                self.kittyGramPresentGhostModeAlert()
+            }
         }
+    }
+
+    private func kittyGramPresentGhostModeAlert() {
+        let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+        let isRussian = presentationData.strings.primaryComponent.languageCode == "ru"
+        let alert = textAlertController(context: self.context, title: isRussian ? "Режим призрака" : "Ghost Mode", text: isRussian ? "Включить режим призрака перед просмотром истории?" : "Do you want to enable Ghost Mode before viewing the story?", actions: [
+            TextAlertAction(type: .genericAction, title: isRussian ? "Нет" : "No", action: {
+                KittyGramSettings.shared.storyViewsOnHold = false
+            }),
+            TextAlertAction(type: .defaultAction, title: isRussian ? "Да" : "Yes", action: {
+                KittyGramSettings.shared.ghostMode = true
+                KittyGramSettings.shared.storyViewsOnHold = false
+            })
+        ])
+        self.present(alert, in: .window(.root))
     }
 
     public var keyShortcuts: [KeyShortcut] {

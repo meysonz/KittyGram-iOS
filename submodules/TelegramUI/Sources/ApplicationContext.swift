@@ -323,6 +323,44 @@ final class AuthorizedApplicationContext {
                 return
             }
 
+            if let strongSelf = self, UIApplication.shared.applicationState != .active {
+                // KittyGram: no push in a sideloaded build, so messages that arrive while the app runs in the background
+                // ("Work in Background" or an iOS background refresh) are shown as local notifications.
+                let presentationData = strongSelf.context.sharedContext.currentPresentationData.with { $0 }
+                let isRussian = presentationData.strings.primaryComponent.languageCode == "ru"
+                for (itemMessages, _, itemNotify, _) in messageList {
+                    guard itemNotify, let message = itemMessages.first, message.flags.contains(.Incoming) else {
+                        continue
+                    }
+                    var title = ""
+                    if let author = message.author {
+                        title = EnginePeer(author).displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
+                    }
+                    if let chatPeer = message.peers[message.id.peerId], chatPeer.id != message.author?.id {
+                        let chatTitle = EnginePeer(chatPeer).displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
+                        title = title.isEmpty ? chatTitle : "\(title) · \(chatTitle)"
+                    }
+                    if title.isEmpty {
+                        title = "KittyGram"
+                    }
+                    var body: String
+                    if !KittyGramSettings.shared.notificationText {
+                        body = isRussian ? "Новое сообщение" : "New message"
+                    } else if !message.text.isEmpty {
+                        body = message.text
+                    } else if !message.media.isEmpty {
+                        body = isRussian ? "📎 Медиа" : "📎 Media"
+                    } else {
+                        body = isRussian ? "Новое сообщение" : "New message"
+                    }
+                    if body.count > 300 {
+                        body = String(body.prefix(300)) + "…"
+                    }
+                    kittyGramPostLocalNotification(identifier: "kittygram-\(message.id.peerId.toInt64())-\(message.id.id)", threadIdentifier: "\(message.id.peerId.toInt64())", title: title, body: body)
+                }
+                return
+            }
+
             if let strongSelf = self, let (messages, _, notify, threadData) = messageList.last, let firstMessage = messages.first {
                 if UIApplication.shared.applicationState == .active {
                     let chatLocation: NavigateToChatControllerParams.Location

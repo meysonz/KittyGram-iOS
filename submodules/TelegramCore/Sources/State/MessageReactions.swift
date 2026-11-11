@@ -395,6 +395,11 @@ private func requestUpdateMessageReaction(postbox: Postbox, network: Network, st
                     return .update(StoreMessage(id: currentMessage.id, customStableId: nil, globallyUniqueId: currentMessage.globallyUniqueId, groupingKey: currentMessage.groupingKey, threadId: currentMessage.threadId, timestamp: currentMessage.timestamp, flags: StoreMessageFlags(currentMessage.flags), tags: currentMessage.tags, globalTags: currentMessage.globalTags, localTags: currentMessage.localTags, forwardInfo: storeForwardInfo, authorId: currentMessage.author?.id, text: currentMessage.text, attributes: attributes, media: currentMessage.media))
                 })
                 stateManager.addUpdates(result)
+                // KittyGram "Read on Interact": a reaction in ghost mode reads the chat for the sender too.
+                let kittyGram = KittyGramSettings.shared
+                if kittyGram.hideRead && kittyGram.readOnInteract {
+                    let _ = kittyGramPushPeerReadState(network: network, postbox: postbox, stateManager: stateManager, peerId: messageId.peerId).start()
+                }
             }
             |> castError(RequestUpdateMessageReactionError.self)
             |> ignoreValues

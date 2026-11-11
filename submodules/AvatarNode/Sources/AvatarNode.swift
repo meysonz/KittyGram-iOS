@@ -39,6 +39,19 @@ public func generateSavedMessagesAvatarImage(size: CGSize) -> UIImage? {
     return generateAvatarImage(size: size, icon: savedMessagesIcon, iconScale: size.width / 60.0, color: .blue, customColors: AvatarNode.savedMessagesColors)
 }
 
+/// KittyGram "Avatar Corners": 0.5 of the size is a circle (Telegram's look), less rounds the corners of a square.
+public func kittyGramAvatarCornerFraction() -> CGFloat {
+    return CGFloat(max(0, min(50, KittyGramSettings.shared.avatarCornerPercent))) / 100.0
+}
+
+public func kittyGramAvatarPath(_ rect: CGRect) -> CGPath {
+    let fraction = kittyGramAvatarCornerFraction()
+    if fraction >= 0.5 {
+        return CGPath(ellipseIn: rect, transform: nil)
+    }
+    return UIBezierPath(roundedRect: rect, cornerRadius: rect.width * fraction).cgPath
+}
+
 public enum AvatarNodeClipStyle {
     case none
     case round
@@ -300,8 +313,7 @@ public func drawAvatarNodeContent(bounds: CGRect, parameters: Any?, isRasterizin
         
         if case .round = parameters.clipStyle {
             context.beginPath()
-            context.addEllipse(in: CGRect(x: 0.0, y: 0.0, width: bounds.size.width, height:
-                bounds.size.height))
+            context.addPath(kittyGramAvatarPath(CGRect(x: 0.0, y: 0.0, width: bounds.size.width, height: bounds.size.height)))
             context.clip()
         } else if case .roundedRect = parameters.clipStyle {
             context.beginPath()
@@ -542,8 +554,7 @@ public final class AvatarEditOverlayNode: ASDisplayNode {
         }
         
         context.beginPath()
-        context.addEllipse(in: CGRect(x: 0.0, y: 0.0, width: bounds.size.width, height:
-            bounds.size.height))
+        context.addPath(kittyGramAvatarPath(CGRect(x: 0.0, y: 0.0, width: bounds.size.width, height: bounds.size.height)))
         context.clip()
         
         context.setFillColor(UIColor(rgb: 0x000000, alpha: 0.4).cgColor)
@@ -1020,7 +1031,7 @@ public final class AvatarNode: ASDisplayNode {
                 self.imageNode.cornerRadius = 0.0
             case .round:
                 self.imageNode.clipsToBounds = true
-                self.imageNode.cornerRadius = displayDimensions.height * 0.5
+                self.imageNode.cornerRadius = displayDimensions.height * kittyGramAvatarCornerFraction()
             case .roundedRect:
                 self.imageNode.clipsToBounds = true
                 self.imageNode.cornerRadius = displayDimensions.height * 0.25

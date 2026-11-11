@@ -1643,10 +1643,17 @@ public extension TelegramEngine {
         }
         
         public func recommendedChannels(peerId: EnginePeer.Id?) -> Signal<RecommendedChannels?, NoError> {
+            if peerId != nil && KittyGramSettings.shared.disableSimilarChannels {
+                // KittyGram "Disable Similar Channels".
+                return .single(nil)
+            }
             return _internal_recommendedChannels(account: self.account, peerId: peerId)
         }
         
         public func recommendedChannelPeerIds(peerId: EnginePeer.Id?) -> Signal<[EnginePeer.Id]?, NoError> {
+            if peerId != nil && KittyGramSettings.shared.disableSimilarChannels {
+                return .single(nil)
+            }
             return _internal_recommendedChannelPeerIds(account: self.account, peerId: peerId)
         }
         
@@ -1655,6 +1662,9 @@ public extension TelegramEngine {
         }
         
         public func requestRecommendedChannels(peerId: EnginePeer.Id, forceUpdate: Bool = false) -> Signal<Never, NoError> {
+            if KittyGramSettings.shared.disableSimilarChannels {
+                return .complete()
+            }
             return _internal_requestRecommendedChannels(account: self.account, peerId: peerId, forceUpdate: forceUpdate)
         }
         

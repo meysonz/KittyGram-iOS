@@ -2116,7 +2116,7 @@ func _internal_markStoryAsSeen(account: Account, peerId: PeerId, id: Int32, asPi
             guard let inputPeer = inputPeer else {
                 return .complete()
             }
-            if KittyGramSettings.shared.hideStoryViews {
+            if KittyGramSettings.shared.storyViewsHidden {
                 return .complete()
             }
             

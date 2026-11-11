@@ -4125,16 +4125,22 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             let (_, items) = countAndFilterItems
             var filterItems: [ChatListFilterTabEntry] = []
             
+            // KittyGram "Hide All Chats Tab" (only when there are folders to show instead) and "Hide Notification Counters".
+            let kittyGramHideAllChats = KittyGramSettings.shared.hideAllChatsTab && items.contains(where: { if case .filter = $0.0 { return true } else { return false } })
+            let kittyGramHideCounters = KittyGramSettings.shared.hideNotificationCounters
             for (filter, unreadCount, hasUnmutedUnread) in items {
                 switch filter {
                     case .allChats:
+                        if kittyGramHideAllChats {
+                            continue
+                        }
                         if let isPremium = isPremium, !isPremium && filterItems.count > 0 {
                             filterItems.insert(.all(unreadCount: 0), at: 0)
                         } else {
                             filterItems.append(.all(unreadCount: 0))
                         }
                     case let .filter(id, title, _, _):
-                        filterItems.append(.filter(id: id, text: title, unread: ChatListFilterTabEntryUnreadCount(value: unreadCount, hasUnmuted: hasUnmutedUnread)))
+                        filterItems.append(.filter(id: id, text: title, unread: ChatListFilterTabEntryUnreadCount(value: kittyGramHideCounters ? 0 : unreadCount, hasUnmuted: kittyGramHideCounters ? false : hasUnmutedUnread)))
                 }
             }
             
@@ -4145,12 +4151,16 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             }
             
             let firstItem = countAndFilterItems.1.first?.0 ?? .allChats
-            let firstItemEntryId: ChatListFilterTabEntryId
+            var firstItemEntryId: ChatListFilterTabEntryId
             switch firstItem {
                 case .allChats:
                     firstItemEntryId = .all
                 case let .filter(id, _, _, _):
                     firstItemEntryId = .filter(id)
+            }
+            let kittyGramFallbackEntryId: ChatListFilterTabEntryId = kittyGramHideAllChats ? (filterItems.first?.id ?? .all) : .all
+            if kittyGramHideAllChats && firstItemEntryId == .all {
+                firstItemEntryId = kittyGramFallbackEntryId
             }
             
             var selectedEntryId = !strongSelf.initializedFilters ? firstItemEntryId : strongSelf.chatListDisplayNode.mainContainerNode.currentItemFilter
@@ -4169,10 +4179,10 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                         }
                     }
                     if !found {
-                        selectedEntryId = .all
+                        selectedEntryId = kittyGramFallbackEntryId
                     }
                 } else {
-                    selectedEntryId = .all
+                    selectedEntryId = kittyGramFallbackEntryId
                 }
             }
             let filtersLimit = isPremium == false ? limits.maxFoldersCount : nil
@@ -4183,6 +4193,9 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                 switch item.0 {
                     case .allChats:
                         hasAllChats = true
+                        if kittyGramHideAllChats {
+                            continue
+                        }
                         if let isPremium = isPremium, !isPremium && availableFilters.count > 0 {
                             availableFilters.insert(.all, at: 0)
                         } else {
@@ -4192,7 +4205,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                         availableFilters.append(.filter(item.0))
                 }
             }
-            if !hasAllChats {
+            if !hasAllChats && !kittyGramHideAllChats {
                 availableFilters.insert(.all, at: 0)
             }
             strongSelf.chatListDisplayNode.mainContainerNode.updateAvailableFilters(availableFilters, limit: filtersLimit)

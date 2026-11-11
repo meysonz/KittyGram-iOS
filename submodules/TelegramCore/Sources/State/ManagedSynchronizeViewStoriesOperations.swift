@@ -122,7 +122,7 @@ private func pushStoriesAreSeen(postbox: Postbox, network: Network, stateManager
     guard let inputPeer = apiInputPeer(peer) else {
         return .complete()
     }
-    if KittyGramSettings.shared.hideStoryViews {
+    if KittyGramSettings.shared.storyViewsHidden {
         return .complete()
     }
     return network.request(Api.functions.stories.readStories(peer: inputPeer, maxId: operation.storyId))

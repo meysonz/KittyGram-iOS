@@ -22,6 +22,7 @@ swift_library(
         "//submodules/ActivityIndicator:ActivityIndicator",
         "//submodules/AlertUI:AlertUI",
         "//submodules/PresentationDataUtils:PresentationDataUtils",
+        "//submodules/PromptUI",
         "//submodules/AvatarNode:AvatarNode",
         "//submodules/CallListUI:CallListUI",
         "//submodules/ChatListSearchItemHeader:ChatListSearchItemHeader",

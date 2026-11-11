@@ -263,6 +263,14 @@ extension ChatControllerImpl {
             sendImmediately = true
         }
         
+        if case .send = action, case .send = updatedAction {
+            // KittyGram "Send Confirmations": show the recording first; sending it from the preview is the confirmation.
+            let kittyGram = KittyGramSettings.shared
+            if (self.audioRecorderValue != nil && kittyGram.bool("confirmVoice")) || (self.videoRecorderValue != nil && kittyGram.bool("confirmRound")) {
+                updatedAction = .preview
+            }
+        }
+        
         if let audioRecorderValue = self.audioRecorderValue {
             switch action {
             case .pause:

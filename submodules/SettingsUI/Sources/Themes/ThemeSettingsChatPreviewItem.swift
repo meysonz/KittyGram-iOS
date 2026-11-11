@@ -30,6 +30,9 @@ struct ChatPreviewMessageItem: Equatable {
         if lhs.backgroundEmojiId != rhs.backgroundEmojiId {
             return false
         }
+        if lhs.kittyGramMarks != rhs.kittyGramMarks || lhs.kittyGramVersion != rhs.kittyGramVersion {
+            return false
+        }
         return true
     }
     
@@ -38,6 +41,22 @@ struct ChatPreviewMessageItem: Equatable {
     let text: String
     let nameColor: PeerColor
     let backgroundEmojiId: Int64?
+    /// KittyGram: show the message as deleted and edited, so the settings preview shows the marks.
+    var kittyGramMarks: Bool = false
+    /// KittyGram: bumped when a KittyGram setting changes, so the preview lays out again.
+    var kittyGramVersion: Int = 0
+}
+
+private func kittyGramPreviewAttributes(messageItem: ChatPreviewMessageItem, replyMessageId: EngineMessage.Id) -> [EngineMessage.Attribute] {
+    var attributes: [EngineMessage.Attribute] = []
+    if messageItem.reply != nil {
+        attributes.append(ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil, quote: nil, isQuote: false, innerSubject: nil))
+    }
+    if messageItem.kittyGramMarks {
+        attributes.append(EditedMessageAttribute(date: 66060, isHidden: false))
+        attributes.append(KittyGramDeletedMessageAttribute(deletedDate: 66120))
+    }
+    return attributes
 }
 
 class ThemeSettingsChatPreviewItem: ListViewItem, ItemListItem {
@@ -166,7 +185,7 @@ class ThemeSettingsChatPreviewItemNode: ListViewItemNode {
                     messages[replyMessageId] = EngineRawMessage(stableId: 3, stableVersion: 0, id: replyMessageId, globallyUniqueId: nil, groupingKey: nil, groupInfo: nil, threadId: nil, timestamp: 66000, flags: [.Incoming], tags: [], globalTags: [], localTags: [], customTags: [], forwardInfo: nil, author: peers[peerId], text: text, attributes: [], media: [], peers: peers, associatedMessages: EngineSimpleDictionary(), associatedMessageIds: [], associatedMedia: [:], associatedThreadInfo: nil, associatedStories: [:])
                 }
                 
-                let message = EngineRawMessage(stableId: 1, stableVersion: 0, id: EngineMessage.Id(peerId: messageItem.outgoing ? otherPeerId : peerId, namespace: 0, id: 1), globallyUniqueId: nil, groupingKey: nil, groupInfo: nil, threadId: nil, timestamp: 66000, flags: messageItem.outgoing ? [] : [.Incoming], tags: [], globalTags: [], localTags: [], customTags: [], forwardInfo: nil, author: messageItem.outgoing ? TelegramUser(id: otherPeerId, accessHash: nil, firstName: "", lastName: "", username: nil, phone: nil, photo: [], botInfo: nil, restrictionInfo: nil, flags: [], emojiStatus: nil, usernames: [], storiesHidden: nil, nameColor: nil, backgroundEmojiId: nil, profileColor: nil, profileBackgroundEmojiId: nil, subscriberCount: nil, verificationIconFileId: nil) : nil, text: messageItem.text, attributes: messageItem.reply != nil ? [ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil, quote: nil, isQuote: false, innerSubject: nil)] : [], media: [], peers: peers, associatedMessages: messages, associatedMessageIds: [], associatedMedia: [:], associatedThreadInfo: nil, associatedStories: [:])
+                let message = EngineRawMessage(stableId: 1, stableVersion: 0, id: EngineMessage.Id(peerId: messageItem.outgoing ? otherPeerId : peerId, namespace: 0, id: 1), globallyUniqueId: nil, groupingKey: nil, groupInfo: nil, threadId: nil, timestamp: 66000, flags: messageItem.outgoing ? [] : [.Incoming], tags: [], globalTags: [], localTags: [], customTags: [], forwardInfo: nil, author: messageItem.outgoing ? TelegramUser(id: otherPeerId, accessHash: nil, firstName: "", lastName: "", username: nil, phone: nil, photo: [], botInfo: nil, restrictionInfo: nil, flags: [], emojiStatus: nil, usernames: [], storiesHidden: nil, nameColor: nil, backgroundEmojiId: nil, profileColor: nil, profileBackgroundEmojiId: nil, subscriberCount: nil, verificationIconFileId: nil) : nil, text: messageItem.text, attributes: kittyGramPreviewAttributes(messageItem: messageItem, replyMessageId: replyMessageId), media: [], peers: peers, associatedMessages: messages, associatedMessageIds: [], associatedMedia: [:], associatedThreadInfo: nil, associatedStories: [:])
                 items.append(item.context.sharedContext.makeChatMessagePreviewItem(context: item.context, messages: [EngineMessage(message)], theme: item.componentTheme, strings: item.strings, wallpaper: item.wallpaper, fontSize: item.fontSize, chatBubbleCorners: item.chatBubbleCorners, dateTimeFormat: item.dateTimeFormat, nameOrder: item.nameDisplayOrder, forcedResourceStatus: nil, tapMessage: nil, clickThroughMessage: nil, backgroundNode: currentBackgroundNode, availableReactions: nil, accountPeer: nil, isCentered: false, isPreview: true, isStandalone: false, rank: nil, rankRole: nil, isGiftMessageComposerPreview: false, activateGiftMessageInput: nil))
             }
             

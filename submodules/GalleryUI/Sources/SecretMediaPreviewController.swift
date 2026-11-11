@@ -422,7 +422,9 @@ public final class SecretMediaPreviewController: ViewController {
             self.screenCaptureEventsDisposable = (screenCaptureEvents()
             |> deliverOnMainQueue).start(next: { [weak self] _ in
                 if let strongSelf = self, strongSelf.traceVisibility() {
-                    if strongSelf.messageId.peerId.namespace == Namespaces.Peer.CloudUser {
+                    if KittyGramSettings.shared.selfDestructScreenshots && strongSelf.messageId.peerId.namespace != Namespaces.Peer.SecretChat {
+                        // KittyGram: the sender is not told about screenshots of self-destructing media.
+                    } else if strongSelf.messageId.peerId.namespace == Namespaces.Peer.CloudUser {
                         let _ = enqueueMessages(account: strongSelf.context.account, peerId: strongSelf.messageId.peerId, messages: [.message(text: "", attributes: [], inlineStickers: [:], mediaReference: .standalone(media: TelegramMediaAction(action: TelegramMediaActionType.historyScreenshot)), threadId: nil, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: [])]).start()
                     } else if strongSelf.messageId.peerId.namespace == Namespaces.Peer.SecretChat {
                         let _ = strongSelf.context.engine.messages.addSecretChatMessageScreenshot(peerId: strongSelf.messageId.peerId).start()

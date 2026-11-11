@@ -494,6 +494,10 @@ private class AdMessagesHistoryContextImpl {
             guard let inputPeer else {
                 return .single((nil, nil, nil, []))
             }
+            if KittyGramSettings.shared.disableAds {
+                // KittyGram "Disable Ads": sponsored messages are never requested.
+                return .single((nil, nil, nil, []))
+            }
             var flags: Int32 = 0
             if let _ = messageId {
                 flags |= (1 << 0)

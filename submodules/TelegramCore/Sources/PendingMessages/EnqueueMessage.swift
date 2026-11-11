@@ -759,7 +759,13 @@ private func opportunisticallyTransformOutgoingMedia(network: Network, postbox: 
 }
 
 public func enqueueMessages(account: Account, peerId: PeerId, messages originalMessages: [EnqueueMessage]) -> Signal<[MessageId?], NoError> {
-    let messages = kittyGramApplySilentSending(originalMessages)
+    return kittyGramCopySelfDestructForwards(postbox: account.postbox, messages: originalMessages)
+    |> mapToSignal { copiedMessages -> Signal<[MessageId?], NoError> in
+        return kittyGramEnqueueMessages(account: account, peerId: peerId, messages: kittyGramApplySilentSending(copiedMessages))
+    }
+}
+
+private func kittyGramEnqueueMessages(account: Account, peerId: PeerId, messages: [EnqueueMessage]) -> Signal<[MessageId?], NoError> {
     let signal: Signal<[(Bool, EnqueueMessage)], NoError>
     if let transformOutgoingMessageMedia = account.transformOutgoingMessageMedia {
         signal = opportunisticallyTransformOutgoingMedia(network: account.network, postbox: account.postbox, transformOutgoingMessageMedia: transformOutgoingMessageMedia, messages: messages, userInteractive: true)

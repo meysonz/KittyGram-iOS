@@ -326,8 +326,20 @@ filegroup(
     ]),
 )
 
-# KittyGram: only KittyGram's own icons; the Telegram-branded ones are not bundled.
+# KittyGram: Telegram's own alternate icons (shown in Telegram's Appearance) plus KittyGram's (shown in KittyGram settings).
 alternate_icon_folders = [
+    "BlackIcon",
+    "BlackClassicIcon",
+    "BlackFilledIcon",
+    "BlueIcon",
+    "BlueClassicIcon",
+    "BlueFilledIcon",
+    "WhiteFilledIcon",
+    "New1",
+    "New2",
+    "Premium",
+    "PremiumBlack",
+    "PremiumTurbo",
     "KittyLavenderIcon",
     "KittySkyIcon",
     "KittyMonoIcon",

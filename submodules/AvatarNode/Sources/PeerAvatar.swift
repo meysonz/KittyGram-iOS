@@ -202,7 +202,7 @@ public func peerAvatarImage(postbox: Postbox, peerReference: PeerReference?, aut
                                 break
                             case .round:
                                 if displayDimensions.width != 60.0 {
-                                    context.addEllipse(in: CGRect(origin: CGPoint(), size: displayDimensions).insetBy(dx: inset, dy: inset))
+                                    context.addPath(kittyGramAvatarPath(CGRect(origin: CGPoint(), size: displayDimensions).insetBy(dx: inset, dy: inset)))
                                     context.clip()
                                 }
                             case .roundedRect:
@@ -395,8 +395,7 @@ public func peerAvatarImage(postbox: Postbox, peerReference: PeerReference?, aut
 public func drawPeerAvatarLetters(context: CGContext, size: CGSize, round: Bool = true, font: UIFont, letters: [String], peerId: EnginePeer.Id, nameColor: PeerColor?) {
     if round {
         context.beginPath()
-        context.addEllipse(in: CGRect(x: 0.0, y: 0.0, width: size.width, height:
-            size.height))
+        context.addPath(kittyGramAvatarPath(CGRect(x: 0.0, y: 0.0, width: size.width, height: size.height)))
         context.clip()
     }
     
@@ -478,7 +477,7 @@ public func generateAvatarImage(size: CGSize, icon: UIImage?, iconScale: CGFloat
                 context.addPath(roundedRect.cgPath)
             }
         } else {
-            context.addEllipse(in: CGRect(x: 0.0, y: 0.0, width: size.width, height: size.height))
+            context.addPath(kittyGramAvatarPath(CGRect(x: 0.0, y: 0.0, width: size.width, height: size.height)))
         }
         context.clip()
         

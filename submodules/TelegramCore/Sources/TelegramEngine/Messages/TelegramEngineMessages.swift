@@ -1171,6 +1171,10 @@ public extension TelegramEngine {
         }
         
         public func storySubscriptions(isHidden: Bool, tempKeepNewlyArchived: Bool = false) -> Signal<EngineStorySubscriptions, NoError> {
+            if KittyGramSettings.shared.disableStories {
+                // KittyGram "Disable Stories": no story list above the chats.
+                return .single(EngineStorySubscriptions(accountItem: nil, items: [], hasMoreToken: nil))
+            }
             return `deferred` { () -> Signal<EngineStorySubscriptions, NoError> in
                 let debugTimerSignal: Signal<Bool, NoError>
 #if DEBUG && false

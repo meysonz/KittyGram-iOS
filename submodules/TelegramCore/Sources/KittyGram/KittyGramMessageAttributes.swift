@@ -56,6 +56,28 @@ public final class KittyGramDeletedMessageAttribute: MessageAttribute {
 }
 
 public extension Message {
+    /// A timer or view-once photo / video / voice / video message (not a message of a chat with auto-delete on).
+    var kittyGramIsSelfDestructingMedia: Bool {
+        return self.containsSecretMedia || self.minAutoremoveOrClearTimeout == viewOnceTimeout
+    }
+
+    /// "Keep Self-Destructing Media" applies: such media of a normal (not secret) chat.
+    var kittyGramKeepsSelfDestructingMedia: Bool {
+        return KittyGramSettings.shared.keepSelfDestructing && self.id.peerId.namespace != Namespaces.Peer.SecretChat && self.kittyGramIsSelfDestructingMedia
+    }
+
+    /// "Self-Destructing Media Screenshots": a timer / view-once media of a normal chat may be captured on screen.
+    /// Never for secret chats, and never for content the chat itself protects.
+    var kittyGramAllowsSelfDestructCapture: Bool {
+        if !KittyGramSettings.shared.selfDestructScreenshots {
+            return false
+        }
+        if self.id.peerId.namespace == Namespaces.Peer.SecretChat || self.isCopyProtected() {
+            return false
+        }
+        return self.kittyGramIsSelfDestructingMedia
+    }
+
     var kittyGramIsDeleted: Bool {
         return self.attributes.contains(where: { $0 is KittyGramDeletedMessageAttribute })
     }

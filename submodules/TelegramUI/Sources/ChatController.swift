@@ -405,6 +405,8 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
     var recordingModeFeedback: HapticFeedback?
     var recorderFeedback: HapticFeedback?
     var audioRecorderValue: ManagedAudioRecorder?
+    /// KittyGram "Send Confirmations": set while a confirmed sticker / GIF is being sent again.
+    var kittyGramSendConfirmed = false
     var audioRecorder = Promise<ManagedAudioRecorder?>()
     var audioRecorderDisposable: Disposable?
     var audioRecorderStatusDisposable: Disposable?
@@ -2473,6 +2475,18 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             guard let strongSelf = self else {
                 return false
             }
+            if KittyGramSettings.shared.bool("confirmSticker") && !strongSelf.kittyGramSendConfirmed {
+                let isRussian = strongSelf.presentationData.strings.primaryComponent.languageCode == "ru"
+                strongSelf.kittyGramConfirmSend(text: isRussian ? "Отправить стикер?" : "Send this sticker?", confirm: { [weak self] in
+                    guard let self, let controllerInteraction = self.controllerInteraction else {
+                        return
+                    }
+                    self.kittyGramSendConfirmed = true
+                    let _ = controllerInteraction.sendSticker(fileReference, silentPosting, schedule, query, clearInput, sourceView, sourceRect, sourceLayer, bubbleUpEmojiOrStickersets)
+                    self.kittyGramSendConfirmed = false
+                })
+                return false
+            }
             
             if let _ = strongSelf.presentationInterfaceState.slowmodeState, strongSelf.presentationInterfaceState.subject != .scheduledMessages {
                 if let sourceView, let sourceRect {
@@ -2748,6 +2762,18 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                 }
             }
         }, sendGif: { [weak self] fileReference, sourceView, sourceRect, silentPosting, schedule in
+            if let strongSelf = self, KittyGramSettings.shared.bool("confirmGif") && !strongSelf.kittyGramSendConfirmed {
+                let isRussian = strongSelf.presentationData.strings.primaryComponent.languageCode == "ru"
+                strongSelf.kittyGramConfirmSend(text: isRussian ? "Отправить GIF?" : "Send this GIF?", confirm: { [weak self] in
+                    guard let self, let controllerInteraction = self.controllerInteraction else {
+                        return
+                    }
+                    self.kittyGramSendConfirmed = true
+                    let _ = controllerInteraction.sendGif(fileReference, sourceView, sourceRect, silentPosting, schedule)
+                    self.kittyGramSendConfirmed = false
+                })
+                return false
+            }
             if let strongSelf = self {
                 if let _ = strongSelf.presentationInterfaceState.slowmodeState, strongSelf.presentationInterfaceState.subject != .scheduledMessages {
                     strongSelf.interfaceInteraction?.displaySlowmodeTooltip(sourceView, sourceRect)
@@ -6855,7 +6881,8 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             if let strongSelf = self {
                 let (chatThemePreview, darkAppearancePreview) = chatThemeAndDarkAppearance
                 
-                var chatWallpaper = chatWallpaper
+                // KittyGram "Disable Custom Backgrounds": the chat keeps the user's own wallpaper.
+                var chatWallpaper = KittyGramSettings.shared.disableCustomBackgrounds ? nil : chatWallpaper
                 
                 let previousTheme = strongSelf.presentationData.theme
                 let previousStrings = strongSelf.presentationData.strings
@@ -10302,7 +10329,7 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             guard let self else {
                 return
             }
-            let disposable = OpenUserGeneratedUrl.openUserGeneratedUrl(context: self.context, peerId: self.contentData?.state.peerView?.peerId, url: url, webpage: nil, concealed: concealed, forceConcealed: forceConcealed, skipUrlAuth: skipUrlAuth, skipConcealedAlert: skipConcealedAlert, forceDark: false, present: { [weak self] c in
+            let disposable = OpenUserGeneratedUrl.openUserGeneratedUrl(context: self.context, peerId: self.contentData?.state.peerView?.peerId, url: url, webpage: nil, concealed: concealed, forceConcealed: forceConcealed, skipUrlAuth: skipUrlAuth, skipConcealedAlert: skipConcealedAlert || KittyGramSettings.shared.disableLinkWarning, forceDark: false, present: { [weak self] c in
                 self?.present(c, in: .window(.root))
             }, openResolved: { [weak self] resolved in
                 self?.openResolved(result: resolved, sourceMessageId: message?.id, progress: progress, forceExternal: forceExternal, concealed: concealed, commit: commit)

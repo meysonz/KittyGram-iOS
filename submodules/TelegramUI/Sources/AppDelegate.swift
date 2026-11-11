@@ -1012,15 +1012,24 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             self.window?.rootViewController?.dismiss(animated: true, completion: nil)
         }, getAvailableAlternateIcons: {
             if #available(iOS 10.3, *) {
-                // KittyGram: the primary icon (Lavender) and KittyGram's alternate icons.
-                let icons = [
-                    PresentationAppIcon(name: "KittyLavenderIcon", imageName: "KittyLavenderIcon", isDefault: true),
-                    PresentationAppIcon(name: "KittySkyIcon", imageName: "KittySkyIcon"),
-                    PresentationAppIcon(name: "KittyMonoIcon", imageName: "KittyMonoIcon"),
-                    PresentationAppIcon(name: "KittyCherryIcon", imageName: "KittyCherryIcon"),
-                    PresentationAppIcon(name: "KittyCatFaceIcon", imageName: "KittyCatFaceIcon"),
-                    PresentationAppIcon(name: "KittyCatTailIcon", imageName: "KittyCatTailIcon")
+                // KittyGram: Telegram's own icons for Telegram's Appearance screen. The primary icon is KittyGram's, so
+                // the blue Telegram icon is an alternate icon here, not the default; KittyGram's icons live in KittyGram settings.
+                var icons = [
+                    PresentationAppIcon(name: "BlueIcon", imageName: "BlueIcon"),
+                    PresentationAppIcon(name: "New2", imageName: "New2"),
+                    PresentationAppIcon(name: "New1", imageName: "New1"),
+                    PresentationAppIcon(name: "BlackIcon", imageName: "BlackIcon"),
+                    PresentationAppIcon(name: "BlueClassicIcon", imageName: "BlueClassicIcon"),
+                    PresentationAppIcon(name: "BlackClassicIcon", imageName: "BlackClassicIcon"),
+                    PresentationAppIcon(name: "BlueFilledIcon", imageName: "BlueFilledIcon"),
+                    PresentationAppIcon(name: "BlackFilledIcon", imageName: "BlackFilledIcon")
                 ]
+                if buildConfig.isInternalBuild {
+                    icons.append(PresentationAppIcon(name: "WhiteFilledIcon", imageName: "WhiteFilledIcon"))
+                }
+                icons.append(PresentationAppIcon(name: "Premium", imageName: "Premium", isPremium: true))
+                icons.append(PresentationAppIcon(name: "PremiumTurbo", imageName: "PremiumTurbo", isPremium: true))
+                icons.append(PresentationAppIcon(name: "PremiumBlack", imageName: "PremiumBlack", isPremium: true))
                 return icons
             } else {
                 return []
@@ -1638,6 +1647,41 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         self.maybeCheckForUpdates()
         
         if #available(iOS 13.0, *) {
+            // KittyGram: there is no push in a sideloaded build, so ask iOS to wake the app now and then. Each wake-up
+            // syncs for ~25 s: new messages show local notifications, deletions and edits are saved.
+            let kittyGramRefreshTaskId = "\(baseAppBundleId).refresh"
+            let kittyGramScheduleRefresh = {
+                let request = BGAppRefreshTaskRequest(identifier: kittyGramRefreshTaskId)
+                request.earliestBeginDate = Date(timeIntervalSinceNow: 15.0 * 60.0)
+                do {
+                    try BGTaskScheduler.shared.submit(request)
+                } catch let e {
+                    Logger.shared.log("App \(self.episodeId)", "KittyGram: could not schedule refresh: \(e)")
+                }
+            }
+            BGTaskScheduler.shared.register(forTaskWithIdentifier: kittyGramRefreshTaskId, using: DispatchQueue.main) { task in
+                kittyGramScheduleRefresh()
+                var completed = false
+                let complete: (Bool) -> Void = { success in
+                    if !completed {
+                        completed = true
+                        task.setTaskCompleted(success: success)
+                    }
+                }
+                let _ = (self.sharedContextPromise.get()
+                |> take(1)
+                |> deliverOnMainQueue).start(next: { sharedApplicationContext in
+                    sharedApplicationContext.wakeupManager.allowBackgroundTimeExtension(timeout: 25.0, extendNow: true)
+                })
+                DispatchQueue.main.asyncAfter(deadline: .now() + 25.0, execute: {
+                    complete(true)
+                })
+                task.expirationHandler = {
+                    complete(false)
+                }
+            }
+            kittyGramScheduleRefresh()
+            
             let cleanupTaskId = "\(baseAppBundleId).cleanup"
             
             BGTaskScheduler.shared.register(forTaskWithIdentifier: cleanupTaskId, using: DispatchQueue.main) { task in

@@ -91,6 +91,7 @@ public final class SharedWakeupManager {
     private var managedPausedInBackgroundPlayer: Disposable?
     private var keepIdleDisposable: Disposable?
     private var silenceAudioRenderer: MediaPlayerAudioRenderer?
+    private var kittyGramSettingsObserver: NSObjectProtocol?
     
     private var accountsAndTasks: [(Account, Bool, AccountTasks)] = []
     
@@ -166,6 +167,10 @@ public final class SharedWakeupManager {
             strongSelf.updateBackgroundProcessingTaskStateFromPendingMediaUploads()
             strongSelf.updateBackgroundProcessingTaskStateFromPendingStoryUploads()
             strongSelf.checkTasks()
+        })
+        
+        self.kittyGramSettingsObserver = NotificationCenter.default.addObserver(forName: KittyGramSettings.didChangeNotification, object: nil, queue: .main, using: { [weak self] _ in
+            self?.checkTasks()
         })
         
         self.hasActiveAudioSessionDisposable = (hasActiveAudioSession
@@ -1097,6 +1102,9 @@ public final class SharedWakeupManager {
             }
         }
         
+        // KittyGram "Work in Background": keep running after the app is closed (no push in a sideloaded build).
+        KittyGramBackgroundKeeper.shared.update(shouldRun: KittyGramSettings.shared.backgroundMode && !self.inForeground && !self.hasActiveAudioSession)
+        
         self.updateAccounts(hasTasks: hasTasksForBackgroundExtension, endTaskAfterTransactionsComplete: endTaskAfterTransactionsComplete)
         
         /*if !self.inForeground && pendingMessageCount != 0 && !self.hasActiveAudioSession {
@@ -1135,13 +1143,13 @@ public final class SharedWakeupManager {
     private func updateAccounts(hasTasks: Bool, endTaskAfterTransactionsComplete: UIBackgroundTaskIdentifier?) {
         let hasBackgroundLocationTask = self.accountsAndTasks.contains(where: { $0.2.backgroundLocation })
         
-        if self.inForeground || self.hasActiveAudioSession || self.isInBackgroundExtension || self.backgroundProcessingTaskId != nil || self.backgroundStoryProcessingTaskId != nil || hasBackgroundLocationTask || (hasTasks && self.currentExternalCompletion != nil) || self.activeExplicitExtensionTimer != nil || self.silenceAudioRenderer != nil {
+        if self.inForeground || self.hasActiveAudioSession || self.isInBackgroundExtension || self.backgroundProcessingTaskId != nil || self.backgroundStoryProcessingTaskId != nil || hasBackgroundLocationTask || (hasTasks && self.currentExternalCompletion != nil) || self.activeExplicitExtensionTimer != nil || self.silenceAudioRenderer != nil || KittyGramBackgroundKeeper.shared.isRunning {
             Logger.shared.log("Wakeup", "enableBeginTransactions: true (active)")
             
             for (account, primary, tasks) in self.accountsAndTasks {
                 account.postbox.setCanBeginTransactions(true)
                 
-                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) {
+                if (self.inForeground && primary) || !tasks.isEmpty || (self.activeExplicitExtensionTimer != nil && primary) || (KittyGramBackgroundKeeper.shared.isRunning && primary) {
                     account.shouldBeServiceTaskMaster.set(.single(.always))
                 } else {
                     account.shouldBeServiceTaskMaster.set(.single(.never))
