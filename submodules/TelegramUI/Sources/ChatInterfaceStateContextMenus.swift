@@ -1357,17 +1357,38 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         }
         
         let kittyGramVersions = message.kittyGramEditVersions
-        if !kittyGramVersions.isEmpty {
-            let kittyGramCurrentText = message.text
+        if !kittyGramVersions.isEmpty && KittyGramSettings.shared.bool("menuHistory") {
             let kittyGramIsRussian = chatPresentationInterfaceState.strings.primaryComponent.languageCode == "ru"
             actions.append(.action(ContextMenuActionItem(text: kittyGramIsRussian ? "История" : "History", icon: { theme in
                 return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Time"), color: theme.actionSheet.primaryTextColor)
             }, action: { _, f in
                 f(.default)
-                controllerInteraction.navigationController()?.pushViewController(kittyGramEditHistoryController(context: context, versions: kittyGramVersions, currentText: kittyGramCurrentText))
+                controllerInteraction.navigationController()?.pushViewController(kittyGramEditHistoryController(context: context, message: EngineMessage(message)))
             })))
         }
-        if KittyGramSettings.shared.hideRead && message.flags.contains(.Incoming) && message.id.namespace == Namespaces.Message.Cloud {
+        if KittyGramSettings.shared.bool("menuRepeat") && message.id.namespace == Namespaces.Message.Cloud && !message.isCopyProtected() && !chatPresentationInterfaceState.copyProtectionEnabled && !message.containsSecretMedia && !message.media.contains(where: { $0 is TelegramMediaAction || $0 is TelegramMediaExpiredContent }) && canSendMessagesToChat(chatPresentationInterfaceState) {
+            // KittyGram "Repeat Message" (+1): sends the same message to this chat again, from you.
+            let kittyGramIsRussian = chatPresentationInterfaceState.strings.primaryComponent.languageCode == "ru"
+            let kittyGramMessage = message
+            actions.append(.action(ContextMenuActionItem(text: kittyGramIsRussian ? "Повторить" : "Repeat", icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Resend"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.default)
+                let threadId = chatPresentationInterfaceState.chatLocation.threadId
+                let repeated: EnqueueMessage
+                if kittyGramMessage.media.isEmpty {
+                    var attributes: [EngineMessage.Attribute] = []
+                    if let entities = kittyGramMessage.textEntitiesAttribute {
+                        attributes.append(TextEntitiesMessageAttribute(entities: entities.entities))
+                    }
+                    repeated = .message(text: kittyGramMessage.text, attributes: attributes, inlineStickers: [:], mediaReference: nil, threadId: threadId, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: [])
+                } else {
+                    repeated = .forward(source: kittyGramMessage.id, threadId: threadId, grouping: .auto, attributes: [ForwardOptionsMessageAttribute(hideNames: true, hideCaptions: false)], correlationId: nil)
+                }
+                let _ = enqueueMessages(account: context.account, peerId: kittyGramMessage.id.peerId, messages: [repeated]).start()
+            })))
+        }
+        if KittyGramSettings.shared.hideRead && KittyGramSettings.shared.bool("menuRead") && message.flags.contains(.Incoming) && message.id.namespace == Namespaces.Message.Cloud {
             // KittyGram: with read receipts hidden, read the chat up to this message on purpose.
             let kittyGramIsRussian = chatPresentationInterfaceState.strings.primaryComponent.languageCode == "ru"
             let kittyGramIndex = message.index

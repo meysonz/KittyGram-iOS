@@ -262,6 +262,13 @@ public class ChatMessageReplyInfoNode: ASDisplayNode {
             if arguments.isSummarized {
                 authorNameColor = nil
             }
+            if KittyGramSettings.shared.disableColorfulReplies {
+                // KittyGram "Disable Colorful Replies": replies use the bubble's accent colour, not the author's.
+                authorNameColor = nil
+                dashSecondaryColor = nil
+                dashTertiaryColor = nil
+                giftEmojiFileId = nil
+            }
             
             switch arguments.type {
             case let .bubble(incoming):

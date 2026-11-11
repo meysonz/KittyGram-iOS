@@ -2182,6 +2182,10 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         if isEphemeralMessage {
             needsShareButton = false
         }
+        if KittyGramSettings.shared.hideSideShareButton && !isAd {
+            // KittyGram "Hide Side Share Button".
+            needsShareButton = false
+        }
         
         /*if isInlinePage {
             needsShareButton = false
@@ -4423,6 +4427,9 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         strongSelf.contentContainersWrapperNode.frame = CGRect(origin: CGPoint(), size: layout.contentSize)
         
         strongSelf.appliedItem = item
+        // KittyGram "Translucent Deleted Messages": a kept deleted message is drawn faded.
+        let kittyGramFaded = KittyGramSettings.shared.translucentDeleted && item.content.firstMessage.kittyGramIsDeleted
+        strongSelf.mainContextSourceNode.contentNode.alpha = kittyGramFaded ? 0.55 : 1.0
         strongSelf.appliedForwardInfo = ChatMessageAppliedForwardInfo(messageId: item.content.firstMessage.id, source: forwardSource, authorSignature: forwardAuthorSignature)
         strongSelf.updateAccessibilityData(accessibilityData)
         strongSelf.disablesComments = disablesComments

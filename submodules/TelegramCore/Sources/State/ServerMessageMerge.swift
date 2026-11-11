@@ -41,8 +41,18 @@ func mergedServerMessageUpdate(previous previousMessage: Message, updated messag
         updatedAttributes.append(deletedAttribute)
     }
     var kittyGramVersions = previousMessage.kittyGramEditVersions
-    if KittyGramSettings.shared.saveEdits && previousMessage.text != message.text && !previousMessage.text.isEmpty {
-        kittyGramVersions.append(KittyGramEditVersion(text: previousMessage.text, date: previousMessage.editedTime ?? previousMessage.timestamp))
+    if KittyGramSettings.shared.saveEdits {
+        // A replaced photo / video / file counts as an edit too (link previews do not).
+        func kittyGramMediaIds(_ media: [Media]) -> [MediaId] {
+            return media.filter { !($0 is TelegramMediaWebpage) }.compactMap { $0.id }
+        }
+        let previousMediaIds = kittyGramMediaIds(previousMessage.media)
+        let mediaChanged = !previousMediaIds.isEmpty && previousMediaIds != kittyGramMediaIds(message.media)
+        let textChanged = previousMessage.text != message.text && !previousMessage.text.isEmpty
+        if textChanged || mediaChanged {
+            let previousMedia = mediaChanged ? previousMessage.media.filter { !($0 is TelegramMediaWebpage) } : []
+            kittyGramVersions.append(KittyGramEditVersion(text: previousMessage.text, date: previousMessage.editedTime ?? previousMessage.timestamp, media: previousMedia))
+        }
     }
     updatedAttributes.removeAll(where: { $0 is KittyGramEditHistoryAttribute })
     if !kittyGramVersions.isEmpty {

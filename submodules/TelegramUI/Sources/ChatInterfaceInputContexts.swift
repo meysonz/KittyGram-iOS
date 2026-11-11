@@ -155,14 +155,14 @@ func inputTextPanelStateForChatPresentationInterfaceState(_ chatPresentationInte
     switch chatPresentationInterfaceState.inputMode {
         case .media:
             accessoryItems.append(.input(isEnabled: true, inputMode: .keyboard))
-            return ChatTextInputPanelState(accessoryItems: accessoryItems, contextPlaceholder: contextPlaceholder, mediaRecordingState: chatPresentationInterfaceState.inputTextPanelState.mediaRecordingState)
+            return ChatTextInputPanelState(accessoryItems: kittyGramFilterAccessoryItems(accessoryItems), contextPlaceholder: contextPlaceholder, mediaRecordingState: chatPresentationInterfaceState.inputTextPanelState.mediaRecordingState)
         case .inputButtons:
             return ChatTextInputPanelState(accessoryItems: [.botInput(isEnabled: true, inputMode: .keyboard)], contextPlaceholder: contextPlaceholder, mediaRecordingState: chatPresentationInterfaceState.inputTextPanelState.mediaRecordingState)
         case .none, .text:
             if let _ = chatPresentationInterfaceState.interfaceState.editMessage {
                 accessoryItems.append(.input(isEnabled: true, inputMode: .emoji))
                 
-                return ChatTextInputPanelState(accessoryItems: accessoryItems, contextPlaceholder: contextPlaceholder, mediaRecordingState: chatPresentationInterfaceState.inputTextPanelState.mediaRecordingState)
+                return ChatTextInputPanelState(accessoryItems: kittyGramFilterAccessoryItems(accessoryItems), contextPlaceholder: contextPlaceholder, mediaRecordingState: chatPresentationInterfaceState.inputTextPanelState.mediaRecordingState)
             } else {
                 var accessoryItems: [ChatTextInputAccessoryItem] = []
                 var isTextEmpty = chatPresentationInterfaceState.interfaceState.composeInputState.isEmpty
@@ -270,7 +270,27 @@ func inputTextPanelStateForChatPresentationInterfaceState(_ chatPresentationInte
                     accessoryItems.append(.botInput(isEnabled: true, inputMode: .bot))
                 }
                 
-                return ChatTextInputPanelState(accessoryItems: accessoryItems, contextPlaceholder: contextPlaceholder, mediaRecordingState: chatPresentationInterfaceState.inputTextPanelState.mediaRecordingState)
+                return ChatTextInputPanelState(accessoryItems: kittyGramFilterAccessoryItems(accessoryItems), contextPlaceholder: contextPlaceholder, mediaRecordingState: chatPresentationInterfaceState.inputTextPanelState.mediaRecordingState)
             }
+    }
+}
+
+
+/// KittyGram "Message Field Elements": buttons of the message field the user turned off.
+private func kittyGramFilterAccessoryItems(_ items: [ChatTextInputAccessoryItem]) -> [ChatTextInputAccessoryItem] {
+    let settings = KittyGramSettings.shared
+    return items.filter { item in
+        switch item {
+        case .input:
+            return settings.bool("fieldEmoji")
+        case .commands, .botInput:
+            return settings.bool("fieldCommands")
+        case .messageAutoremoveTimeout:
+            return settings.bool("fieldTTL")
+        case .gift:
+            return settings.bool("fieldGift")
+        default:
+            return true
+        }
     }
 }

@@ -189,7 +189,8 @@ public func messageBubbleImage(maxCornerRadius: CGFloat, minCornerRadius: CGFloa
         drawTail = false
     }
     // `tail: false` (bubble mode off) keeps the neighbor corner shapes and the tail's reserved column, and draws no tail.
-    if !tail {
+    // KittyGram "Remove Message Tail" keeps the shapes the same way.
+    if !tail || KittyGramSettings.shared.removeMessageTail {
         drawTail = false
     }
     

@@ -72,8 +72,11 @@ class ThemeSettingsChatPreviewItem: ListViewItem, ItemListItem {
     let dateTimeFormat: PresentationDateTimeFormat
     let nameDisplayOrder: PresentationPersonNameOrder
     let messageItems: [ChatPreviewMessageItem]
+    /// KittyGram: real messages to draw instead of `messageItems` (the edit history screen).
+    let customMessages: [EngineMessage]
     
-    init(context: AccountContext, systemStyle: ItemListSystemStyle = .legacy, theme: PresentationTheme, componentTheme: PresentationTheme, strings: PresentationStrings, sectionId: ItemListSectionId, fontSize: PresentationFontSize, chatBubbleCorners: PresentationChatBubbleCorners, wallpaper: TelegramWallpaper, dateTimeFormat: PresentationDateTimeFormat, nameDisplayOrder: PresentationPersonNameOrder, messageItems: [ChatPreviewMessageItem]) {
+    init(context: AccountContext, systemStyle: ItemListSystemStyle = .legacy, theme: PresentationTheme, componentTheme: PresentationTheme, strings: PresentationStrings, sectionId: ItemListSectionId, fontSize: PresentationFontSize, chatBubbleCorners: PresentationChatBubbleCorners, wallpaper: TelegramWallpaper, dateTimeFormat: PresentationDateTimeFormat, nameDisplayOrder: PresentationPersonNameOrder, messageItems: [ChatPreviewMessageItem], customMessages: [EngineMessage] = []) {
+        self.customMessages = customMessages
         self.context = context
         self.systemStyle = systemStyle
         self.theme = theme
@@ -175,6 +178,9 @@ class ThemeSettingsChatPreviewItemNode: ListViewItemNode {
             let peerId = EnginePeer.Id(namespace: Namespaces.Peer.CloudUser, id: EnginePeer.Id.Id._internalFromInt64Value(1))
             let otherPeerId = EnginePeer.Id(namespace: Namespaces.Peer.CloudUser, id: EnginePeer.Id.Id._internalFromInt64Value(2))
             var items: [ListViewItem] = []
+            for customMessage in item.customMessages.reversed() {
+                items.append(item.context.sharedContext.makeChatMessagePreviewItem(context: item.context, messages: [customMessage], theme: item.componentTheme, strings: item.strings, wallpaper: item.wallpaper, fontSize: item.fontSize, chatBubbleCorners: item.chatBubbleCorners, dateTimeFormat: item.dateTimeFormat, nameOrder: item.nameDisplayOrder, forcedResourceStatus: nil, tapMessage: nil, clickThroughMessage: nil, backgroundNode: currentBackgroundNode, availableReactions: nil, accountPeer: nil, isCentered: false, isPreview: true, isStandalone: false, rank: nil, rankRole: nil, isGiftMessageComposerPreview: false, activateGiftMessageInput: nil))
+            }
             for messageItem in item.messageItems.reversed() {
                 var peers = EngineSimpleDictionary<EnginePeer.Id, EngineRawPeer>()
                 var messages = EngineSimpleDictionary<EngineMessage.Id, EngineRawMessage>()
@@ -190,7 +196,7 @@ class ThemeSettingsChatPreviewItemNode: ListViewItemNode {
             }
             
             var nodes: [ListViewItemNode] = []
-            if let messageNodes = currentNodes {
+            if let messageNodes = currentNodes, messageNodes.count == items.count {
                 nodes = messageNodes
                 for i in 0 ..< items.count {
                     let itemNode = messageNodes[i]
@@ -326,4 +332,10 @@ class ThemeSettingsChatPreviewItemNode: ListViewItemNode {
     override func animateRemoved(_ currentTimestamp: Double, duration: Double) {
         self.layer.animateAlpha(from: 1.0, to: 0.0, duration: 0.15, removeOnCompletion: false)
     }
+}
+
+
+/// KittyGram: a block of real message bubbles on the chat background, for screens outside the chat (edit history).
+public func kittyGramMessageBubblesItem(context: AccountContext, presentationData: PresentationData, messages: [EngineMessage], sectionId: ItemListSectionId) -> ListViewItem {
+    return ThemeSettingsChatPreviewItem(context: context, systemStyle: .glass, theme: presentationData.theme, componentTheme: presentationData.theme, strings: presentationData.strings, sectionId: sectionId, fontSize: presentationData.chatFontSize, chatBubbleCorners: presentationData.chatBubbleCorners, wallpaper: presentationData.chatWallpaper, dateTimeFormat: presentationData.dateTimeFormat, nameDisplayOrder: presentationData.nameDisplayOrder, messageItems: [], customMessages: messages)
 }

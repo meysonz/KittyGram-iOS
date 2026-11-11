@@ -37,6 +37,10 @@ public extension TelegramEngine {
         }
 
         public func randomGreetingSticker() -> Signal<FoundStickerItem?, NoError> {
+            if KittyGramSettings.shared.disableGreetingSticker {
+                // KittyGram "Disable Greeting Sticker": an empty chat shows no sticker to send.
+                return .single(nil)
+            }
             return _internal_randomGreetingSticker(account: self.account)
         }
 

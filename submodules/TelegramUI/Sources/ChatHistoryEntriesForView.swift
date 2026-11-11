@@ -231,6 +231,11 @@ func chatHistoryEntriesForView(
             }
         }
         
+        // KittyGram "Filters": incoming messages with a filtered word or phrase are hidden.
+        if message.flags.contains(.Incoming), KittyGramSettings.shared.isFiltered(text: message.text) {
+            continue loop
+        }
+        
         var contentTypeHint: ChatMessageEntryContentType = .generic
         
         for media in message.media {

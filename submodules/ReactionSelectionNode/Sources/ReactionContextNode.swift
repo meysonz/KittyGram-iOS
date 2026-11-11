@@ -3417,6 +3417,12 @@ public final class StandaloneReactionAnimation: ASDisplayNode {
     public var currentDismissAnimation: (() -> Void)?
     
     public func animateReactionSelection(context: AccountContext, theme: PresentationTheme, animationCache: AnimationCache, reaction: ReactionItem, customEffectResource: TelegramMediaResource? = nil, avatarPeers: [EnginePeer], playHaptic: Bool, isLarge: Bool, playCenterReaction: Bool = true, forceSmallEffectAnimation: Bool = false, hideCenterAnimation: Bool = false, targetView: UIView, addStandaloneReactionAnimation: ((StandaloneReactionAnimation) -> Void)?, currentItemNode: ReactionNode?, onHit: (() -> Void)? = nil, completion: @escaping () -> Void) {
+        if KittyGramSettings.shared.hideReactionEffects {
+            // KittyGram "Hide Reactions › Reaction Effects": the reaction just appears, with no effect over the chat.
+            onHit?()
+            completion()
+            return
+        }
         guard let sourceSnapshotView = targetView.snapshotContentTree() else {
             completion()
             return

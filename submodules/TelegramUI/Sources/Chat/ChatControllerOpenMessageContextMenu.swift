@@ -128,7 +128,9 @@ extension ChatControllerImpl {
                 actions.context = self.context
                 actions.animationCache = self.controllerInteraction?.presentationContext.animationCache
                                                          
-                if canAddMessageReactions(message: EngineMessage(topMessage)), let allowedReactions = allowedReactions, !topReactions.isEmpty {
+                // KittyGram "Hide Reactions › Panel in Message Menu" (saved-message tags keep it).
+                let kittyGramHideReactionPanel = KittyGramSettings.shared.hideReactionsPanel && !message.areReactionsTags(accountPeerId: self.context.account.peerId)
+                if !kittyGramHideReactionPanel, canAddMessageReactions(message: EngineMessage(topMessage)), let allowedReactions = allowedReactions, !topReactions.isEmpty {
                     actions.reactionItems = topReactions.map { ReactionContextItem.reaction(item: $0, icon: .none) }
                     actions.selectedReactionItems = selectedReactions.reactions
                     if message.areReactionsTags(accountPeerId: self.context.account.peerId) {

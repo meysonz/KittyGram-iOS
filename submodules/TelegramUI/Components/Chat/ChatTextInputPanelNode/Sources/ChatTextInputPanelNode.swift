@@ -3779,7 +3779,8 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         }
         
         let searchLayoutClearButtonSize = CGSize(width: 46.0, height: 40.0)
-        self.mediaActionButtons.micButton.isHidden = additionalSideInsets.right > 0.0
+        // KittyGram "Message Field Elements › Voice" hides the voice / video message button.
+        self.mediaActionButtons.micButton.isHidden = additionalSideInsets.right > 0.0 || !KittyGramSettings.shared.bool("fieldVoice")
         self.mediaActionButtons.micButtonTintMaskView.isHidden = self.mediaActionButtons.micButton.isHidden
 
         let clearButtonFrame = CGRect(origin: CGPoint(x: textInputContainerBackgroundFrame.width - searchLayoutClearButtonSize.width, y: textInputFrame.maxY - 40.0 + floor((40.0 - searchLayoutClearButtonSize.height) * 0.5)), size: searchLayoutClearButtonSize)
@@ -3795,7 +3796,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         var isAIButtonVisible = false
         var attachmentPillHeight: CGFloat = 40.0
         let inputHasNonWhitespaceText = !(self.richTextInputNode?.inputContentIsEmptyWhitespaceTrimmed ?? true)
-        if self.isAIEnabled, inputHasNonWhitespaceText, let node = self.richTextInputNode {
+        if self.isAIEnabled, KittyGramSettings.shared.bool("fieldAI"), inputHasNonWhitespaceText, let node = self.richTextInputNode {
             let threeLineHeight = self.threeLineFieldHeight(forWidth: baseWidth, node: node, metrics: metrics, bottomInset: bottomInset, textFieldInsets: textFieldInsets)
             if textInputHeight >= threeLineHeight - 0.5 {
                 isAIButtonVisible = true
@@ -3804,6 +3805,13 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         }
 
         let attachmentButtonFrame = CGRect(origin: CGPoint(x: attachmentButtonX, y: textInputFrame.maxY - attachmentPillHeight), size: CGSize(width: 40.0, height: attachmentPillHeight))
+        // KittyGram "Message Field Elements › Attach" hides the attachment button (its place stays).
+        let kittyGramHideAttach = !KittyGramSettings.shared.bool("fieldAttach")
+        self.attachmentButton.isHidden = kittyGramHideAttach
+        self.attachmentButtonBackground.isHidden = kittyGramHideAttach
+        if kittyGramHideAttach {
+            self.attachmentButtonIcon.isHidden = true
+        }
         attachmentButtonX += 40.0 + 6.0
         self.attachmentButtonBackground.update(size: attachmentButtonFrame.size, cornerRadius: 40.0 * 0.5, isDark: interfaceState.theme.overallDarkAppearance, tintColor: defaultGlassTintColor, isInteractive: true, transition: ComponentTransition(transition))
 

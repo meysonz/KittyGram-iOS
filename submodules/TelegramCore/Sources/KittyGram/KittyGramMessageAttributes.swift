@@ -1,14 +1,28 @@
 import Foundation
 import Postbox
 
-/// One earlier version of an edited message.
+/// One earlier version of an edited message: its text and, when the photo / video / file was replaced, the old media.
 public struct KittyGramEditVersion: Equatable {
     public let text: String
     public let date: Int32
+    public let media: [Media]
 
-    public init(text: String, date: Int32) {
+    public init(text: String, date: Int32, media: [Media] = []) {
         self.text = text
         self.date = date
+        self.media = media
+    }
+
+    public static func ==(lhs: KittyGramEditVersion, rhs: KittyGramEditVersion) -> Bool {
+        if lhs.text != rhs.text || lhs.date != rhs.date || lhs.media.count != rhs.media.count {
+            return false
+        }
+        for i in 0 ..< lhs.media.count {
+            if !lhs.media[i].isEqual(to: rhs.media[i]) {
+                return false
+            }
+        }
+        return true
     }
 }
 
@@ -23,10 +37,18 @@ public final class KittyGramEditHistoryAttribute: MessageAttribute {
     required public init(decoder: PostboxDecoder) {
         let texts = decoder.decodeStringArrayForKey("t")
         let dates = decoder.decodeInt32ArrayForKey("d")
+        let mediaIndices = decoder.decodeInt32ArrayForKey("mi")
+        let mediaObjects = decoder.decodeObjectArrayForKey("mo")
+        var mediaByVersion: [Int: [Media]] = [:]
+        for i in 0 ..< min(mediaIndices.count, mediaObjects.count) {
+            if let media = mediaObjects[i] as? Media {
+                mediaByVersion[Int(mediaIndices[i]), default: []].append(media)
+            }
+        }
         var versions: [KittyGramEditVersion] = []
         var index = 0
         while index < texts.count {
-            versions.append(KittyGramEditVersion(text: texts[index], date: index < dates.count ? dates[index] : 0))
+            versions.append(KittyGramEditVersion(text: texts[index], date: index < dates.count ? dates[index] : 0, media: mediaByVersion[index] ?? []))
             index += 1
         }
         self.versions = versions
@@ -35,6 +57,16 @@ public final class KittyGramEditHistoryAttribute: MessageAttribute {
     public func encode(_ encoder: PostboxEncoder) {
         encoder.encodeStringArray(self.versions.map { $0.text }, forKey: "t")
         encoder.encodeInt32Array(self.versions.map { $0.date }, forKey: "d")
+        var mediaIndices: [Int32] = []
+        var mediaObjects: [PostboxCoding] = []
+        for (index, version) in self.versions.enumerated() {
+            for media in version.media {
+                mediaIndices.append(Int32(index))
+                mediaObjects.append(media)
+            }
+        }
+        encoder.encodeInt32Array(mediaIndices, forKey: "mi")
+        encoder.encodeGenericObjectArray(mediaObjects, forKey: "mo")
     }
 }
 

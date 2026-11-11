@@ -172,7 +172,14 @@ public func stringForMessageTimestampStatus(
         }
     }
     if message.attributes.contains(where: { $0 is KittyGramDeletedMessageAttribute }) {
-        dateText = (strings.primaryComponent.languageCode == "ru" ? "удалено" : "deleted") + " " + dateText
+        let kittyGram = KittyGramSettings.shared
+        if kittyGram.replaceMarksWithIcons {
+            // The status node draws a trash icon for this marker.
+            dateText = kittyGramDeletedIconMarker + dateText
+        } else {
+            let mark = kittyGram.deletedMark.isEmpty ? (strings.primaryComponent.languageCode == "ru" ? "удалено" : "deleted") : kittyGram.deletedMark
+            dateText = mark + " " + dateText
+        }
     }
     if timestamp == scheduleWhenOnlineTimestamp {
         dateText = "         "

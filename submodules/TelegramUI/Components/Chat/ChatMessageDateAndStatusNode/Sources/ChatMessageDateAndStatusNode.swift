@@ -607,10 +607,21 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             }
             
             var updatedDateText = arguments.dateText
+            // KittyGram marks: custom "edited" text, or trash / pencil icons ("Replace with Icons").
+            let kittyGramUseIcons = KittyGramSettings.shared.replaceMarksWithIcons
+            var kittyGramDeleted = false
+            if updatedDateText.hasPrefix(kittyGramDeletedIconMarker) {
+                kittyGramDeleted = true
+                updatedDateText.removeFirst()
+            }
+            var kittyGramEditedIcon = false
             if arguments.edited {
                 if let useEditedTimestamp = arguments.context.getAppConfigValue("message_primary_edited_date") as? Bool, useEditedTimestamp {
+                } else if kittyGramUseIcons {
+                    kittyGramEditedIcon = true
                 } else {
-                    updatedDateText = "\(arguments.presentationData.strings.Conversation_MessageEditedLabel) \(updatedDateText)"
+                    let editedMark = KittyGramSettings.shared.editedMark
+                    updatedDateText = "\(editedMark.isEmpty ? arguments.presentationData.strings.Conversation_MessageEditedLabel : editedMark) \(updatedDateText)"
                 }
             }
             if let impressionCount = arguments.impressionCount {
@@ -628,6 +639,14 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             var checkReadFrame: CGRect?
             
             var clockPosition = CGPoint()
+            
+            if kittyGramDeleted || kittyGramEditedIcon, let marks = kittyGramMarkIcons(deleted: kittyGramDeleted, edited: kittyGramEditedIcon, color: dateColor, fontSize: floor(arguments.presentationData.fontSize.baseDisplaySize * 11.0 / 17.0)) {
+                if let existing = impressionImage {
+                    impressionImage = kittyGramJoinImages(marks, existing)
+                } else {
+                    impressionImage = marks
+                }
+            }
             
             var impressionSize = CGSize()
             var impressionWidth: CGFloat = 0.0
