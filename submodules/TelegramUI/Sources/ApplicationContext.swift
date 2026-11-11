@@ -323,6 +323,11 @@ final class AuthorizedApplicationContext {
                 return
             }
 
+            if let strongSelf = self {
+                // KittyGram: download private-chat media right away, so a deleted photo / video is kept in full.
+                kittyGramPrefetchPrivateChatMedia(account: strongSelf.context.account, messages: messageList.flatMap { $0.0 })
+            }
+
             if let strongSelf = self, UIApplication.shared.applicationState != .active {
                 // KittyGram: no push in a sideloaded build, so messages that arrive while the app runs in the background
                 // ("Work in Background" or an iOS background refresh) are shown as local notifications.
