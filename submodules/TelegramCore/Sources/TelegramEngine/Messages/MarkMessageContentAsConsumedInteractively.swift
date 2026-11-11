@@ -42,7 +42,10 @@ func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messa
                                 }
                             }
                         } else {
-                            addSynchronizeConsumeMessageContentsOperation(transaction: transaction, messageIds: [message.id])
+                            // KittyGram ghost mode: a voice / video message plays without telling the sender it was played.
+                            if !KittyGramSettings.shared.hideRead {
+                                addSynchronizeConsumeMessageContentsOperation(transaction: transaction, messageIds: [message.id])
+                            }
                         }
                     }
                 } else if let attribute = updatedAttributes[i] as? ConsumablePersonalMentionMessageAttribute, !attribute.consumed {
