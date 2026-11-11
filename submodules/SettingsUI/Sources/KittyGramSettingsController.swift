@@ -113,6 +113,7 @@ private enum KittyGramSettingsEntry: ItemListNodeEntry {
     case choice(Int32, String, String, String, Int32)
     case footer(Int32, String, Int32)
     case slider(Int32, String, Int, Int, Int32)
+    case avatarPreview(Int32, Int, String, String, Int32)
     case preview(Int32, Int, Int32)
     case icons(Int32, String?, Int32)
     case phrase(Int32, Int, String, Int32)
@@ -120,14 +121,14 @@ private enum KittyGramSettingsEntry: ItemListNodeEntry {
 
     var section: ItemListSectionId {
         switch self {
-        case let .logo(_, _, _, section), let .category(_, _, _, _, _, section), let .link(_, _, _, _, section), let .header(_, _, section), let .toggle(_, _, _, _, section), let .group(_, _, _, _, _, _, section), let .choice(_, _, _, _, section), let .footer(_, _, section), let .slider(_, _, _, _, section), let .preview(_, _, section), let .icons(_, _, section), let .phrase(_, _, _, section), let .addPhrase(_, _, section):
+        case let .logo(_, _, _, section), let .category(_, _, _, _, _, section), let .link(_, _, _, _, section), let .header(_, _, section), let .toggle(_, _, _, _, section), let .group(_, _, _, _, _, _, section), let .choice(_, _, _, _, section), let .footer(_, _, section), let .slider(_, _, _, _, section), let .avatarPreview(_, _, _, _, section), let .preview(_, _, section), let .icons(_, _, section), let .phrase(_, _, _, section), let .addPhrase(_, _, section):
             return section
         }
     }
 
     var stableId: Int32 {
         switch self {
-        case let .logo(id, _, _, _), let .category(id, _, _, _, _, _), let .link(id, _, _, _, _), let .header(id, _, _), let .toggle(id, _, _, _, _), let .group(id, _, _, _, _, _, _), let .choice(id, _, _, _, _), let .footer(id, _, _), let .slider(id, _, _, _, _), let .preview(id, _, _), let .icons(id, _, _), let .phrase(id, _, _, _), let .addPhrase(id, _, _):
+        case let .logo(id, _, _, _), let .category(id, _, _, _, _, _), let .link(id, _, _, _, _), let .header(id, _, _), let .toggle(id, _, _, _, _), let .group(id, _, _, _, _, _, _), let .choice(id, _, _, _, _), let .footer(id, _, _), let .slider(id, _, _, _, _), let .avatarPreview(id, _, _, _, _), let .preview(id, _, _), let .icons(id, _, _), let .phrase(id, _, _, _), let .addPhrase(id, _, _):
             return id
         }
     }
@@ -177,6 +178,8 @@ private enum KittyGramSettingsEntry: ItemListNodeEntry {
             return KittyGramSliderItem(theme: presentationData.theme, valueCount: valueCount, value: value, sectionId: section, updated: { updatedValue in
                 arguments.setSlider(key, updatedValue)
             })
+        case let .avatarPreview(_, percent, title, subtitle, section):
+            return KittyGramAvatarPreviewItem(theme: presentationData.theme, cornerFraction: CGFloat(max(0, min(50, percent))) / 100.0, title: title, subtitle: subtitle, sectionId: section)
         case let .preview(_, version, section):
             let data = arguments.presentationData
             let isRussian = data.strings.primaryComponent.languageCode == "ru"
@@ -305,6 +308,7 @@ private func kittyGramSettingsEntries(page: KittyGramSettingsPage, isRussian: Bo
 
         let avatarPercent = settings.avatarCornerPercent
         entries.append(.header(id(), tr("AVATAR CORNERS", "СКРУГЛЕНИЕ АВАТАРОК") + (avatarPercent >= 50 ? tr(" · CIRCLE", " · КРУГ") : " · \(avatarPercent * 2)%"), 1))
+        entries.append(.avatarPreview(id(), avatarPercent, "KittyGram", tr("Avatar preview", "Так будут выглядеть аватарки"), 1))
         entries.append(.slider(id(), "avatarCornerPercent", avatarPercent / 5, 11, 1))
 
         entries.append(.header(id(), tr("CHAT LIST", "СПИСОК ЧАТОВ"), 2))
@@ -376,6 +380,26 @@ private func kittyGramPageTitle(_ page: KittyGramSettingsPage, isRussian: Bool) 
     }
 }
 
+/// Settings that take effect only after the app starts again (drawn images are cached, lists are set up once).
+private let kittyGramRestartKeys: Set<String> = ["removeMessageTail", "hideAllChatsTab", "hideNotificationCounters", "disableStories", "avatarCornerPercent"]
+/// Set when such a setting changed; the next settings page that closes asks to restart, like AyuGram.
+private var kittyGramNeedsRestart = false
+
+private func kittyGramPresentRestartAlert(context: AccountContext) {
+    let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+    let isRussian = presentationData.strings.primaryComponent.languageCode == "ru"
+    let alert = textAlertController(context: context, title: nil, text: isRussian ? "Чтобы применить некоторые новые настройки, нужен перезапуск. KittyGram закроется, открой его снова. Перезапустить сейчас?" : "You need to restart to apply some of the new settings. KittyGram will close, then open it again. Restart now?", actions: [
+        TextAlertAction(type: .genericAction, title: isRussian ? "Позже" : "Later", action: {}),
+        TextAlertAction(type: .defaultAction, title: isRussian ? "Перезапустить" : "Restart", action: {
+            // iOS does not let an app start itself again: close it, the user opens it from the home screen.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: {
+                exit(0)
+            })
+        })
+    ])
+    context.sharedContext.presentGlobalController(alert, nil)
+}
+
 public func kittyGramSettingsController(context: AccountContext) -> ViewController {
     return kittyGramSettingsController(context: context, page: .main)
 }
@@ -397,6 +421,9 @@ public func kittyGramSettingsController(context: AccountContext, page: KittyGram
     let initialPresentationData = context.sharedContext.currentPresentationData.with { $0 }
     let arguments = KittyGramSettingsArguments(context: context, presentationData: initialPresentationData, currentIconName: currentIconName, toggle: { key, value in
         KittyGramSettings.shared.setBool(key, value)
+        if kittyGramRestartKeys.contains(key) {
+            kittyGramNeedsRestart = true
+        }
         bump()
     }, toggleGroup: { groupKey, value in
         for key in kittyGramGroups[groupKey] ?? [] {
@@ -482,6 +509,7 @@ public func kittyGramSettingsController(context: AccountContext, page: KittyGram
         switch key {
         case "avatarCornerPercent":
             KittyGramSettings.shared.avatarCornerPercent = value * 5
+            kittyGramNeedsRestart = true
             bump()
         case "bubbleRadius":
             let radius = Int32(max(0, min(16, value)))
@@ -566,6 +594,12 @@ public func kittyGramSettingsController(context: AccountContext, page: KittyGram
     }
     presentControllerImpl = { [weak controller] c in
         controller?.present(c, in: .window(.root))
+    }
+    controller.didDisappear = { _ in
+        if kittyGramNeedsRestart {
+            kittyGramNeedsRestart = false
+            kittyGramPresentRestartAlert(context: context)
+        }
     }
     return controller
 }
