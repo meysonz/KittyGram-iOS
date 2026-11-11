@@ -74,16 +74,19 @@ func kittyGramCopySelfDestructForwards(postbox: Postbox, messages: [EnqueueMessa
 }
 
 
-/// Puts a quote of the deleted message at the top of the reply: the author's profile name (the @username when the
-/// name is empty) in bold, then the deleted text (or a short label for media). The reply's own formatting moves down with it.
+/// Puts a quote of the deleted message at the top of the reply: in groups the author's profile name (the @username
+/// when the name is empty) in bold, linked to the profile, then the deleted text (or a short label for media). The reply's own formatting moves down with it.
 private func kittyGramQuoteDeletedMessage(_ target: Message, text: String, attributes: [MessageAttribute]) -> (String, [MessageAttribute]) {
+    // In a private chat it is clear who wrote it, so the quote has no name. In groups the name comes first and links
+    // to the author's profile.
     var author = ""
-    if let peer = target.author {
-        // The profile name; the @username only when the name is empty.
+    var authorPeerId: PeerId?
+    if target.id.peerId.namespace != Namespaces.Peer.CloudUser, let peer = target.author {
         author = peer.debugDisplayTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         if author.isEmpty, let addressName = peer.addressName, !addressName.isEmpty {
             author = "@" + addressName
         }
+        authorPeerId = peer.id
     }
     var quoted = target.text
     if quoted.isEmpty {
@@ -99,7 +102,11 @@ private func kittyGramQuoteDeletedMessage(_ target: Message, text: String, attri
 
     var entities: [MessageTextEntity] = [MessageTextEntity(range: 0 ..< quoteLength, type: .BlockQuote(isCollapsed: false))]
     if !author.isEmpty {
-        entities.append(MessageTextEntity(range: 0 ..< (author as NSString).length, type: .Bold))
+        let authorRange = 0 ..< (author as NSString).length
+        entities.append(MessageTextEntity(range: authorRange, type: .Bold))
+        if let authorPeerId {
+            entities.append(MessageTextEntity(range: authorRange, type: .TextMention(peerId: authorPeerId)))
+        }
     }
     var updatedAttributes: [MessageAttribute] = []
     for attribute in attributes {
