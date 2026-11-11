@@ -1947,17 +1947,9 @@ ios_application(
     strings = [
         ":AppStringResources",
     ],
-    extensions = select({
-        ":disableExtensionsSetting": [],
-        "//conditions:default": [
-            ":ShareExtension",
-            ":NotificationContentExtension",
-            ":NotificationServiceExtension" + notificationServiceExtensionVersion,
-            ":IntentsExtension",
-            ":WidgetExtension",
-            ":BroadcastUploadExtension",
-        ],
-    }),
+    # KittyGram: a sideloaded build with a free Apple ID cannot run app extensions (the workflow strips them from the
+    # IPA anyway), so they are not built at all: this saves a good part of every build.
+    extensions = [],
     # Embed the in-repo tgwatch watch app (Telegram/WatchApp) under Watch/ only when
     # --//Telegram:embedWatchApp is set (Make.py sets it for device configs when
     # --embedWatchApp is passed). Off by default, so simulator/dev builds are unaffected.
