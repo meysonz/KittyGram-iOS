@@ -333,6 +333,8 @@ final class AuthorizedApplicationContext {
                 // ("Work in Background" or an iOS background refresh) are shown as local notifications. Telegram's own
                 // notification settings apply: muted chats (`notify`) and the switches for private chats, groups, channels.
                 let context = strongSelf.context
+                // Telegram's "Names on Lock Screen": when off, the notification does not say who wrote.
+                let showNames = strongSelf.inAppNotificationSettings?.displayNameOnLockscreen ?? true
                 let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.NotificationSettings.Global())
                 |> deliverOnMainQueue).start(next: { globalSettings in
                     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
@@ -364,7 +366,7 @@ final class AuthorizedApplicationContext {
                             let chatTitle = EnginePeer(chatPeer).displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
                             title = title.isEmpty ? chatTitle : "\(title) · \(chatTitle)"
                         }
-                        if title.isEmpty {
+                        if title.isEmpty || !showNames {
                             title = "KittyGram"
                         }
                         var body: String
