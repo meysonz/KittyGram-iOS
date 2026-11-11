@@ -1602,7 +1602,8 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
         if !isCopyProtected {
             for media in message.effectiveMedia {
                 if let file = media as? TelegramMediaFile {
-                    if file.isMusic {
+                    // KittyGram: kept self-destructing voice and video messages can be saved to Files too.
+                    if file.isMusic || ((file.isVoice || file.isInstantVideo) && message.kittyGramKeepsSelfDestructingMedia && resourceAvailable) {
                         actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.Conversation_SaveToFiles, icon: { theme in
                             return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Save"), color: theme.actionSheet.primaryTextColor)
                         }, action: { _, f in
