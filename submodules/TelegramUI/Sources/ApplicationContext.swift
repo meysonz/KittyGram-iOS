@@ -117,6 +117,7 @@ final class AuthorizedApplicationContext {
     private let loggedOutDisposable = MetaDisposable()
     private let inAppNotificationSettingsDisposable = MetaDisposable()
     private let notificationMessagesDisposable = MetaDisposable()
+    private var kittyGramMessageEventObserver: NSObjectProtocol?
     private let termsOfServiceUpdatesDisposable = MetaDisposable()
     private let termsOfServiceProceedToBotDisposable = MetaDisposable()
     private let watchNavigateToMessageDisposable = MetaDisposable()
@@ -295,6 +296,45 @@ final class AuthorizedApplicationContext {
         }))
 
         let engine = context.engine
+        // KittyGram "Notify About Deletions / Edits" in private chats.
+        self.kittyGramMessageEventObserver = NotificationCenter.default.addObserver(forName: KittyGramMessageEvent.notification, object: nil, queue: .main, using: { [weak self] notification in
+            guard let self, let event = notification.userInfo?["event"] as? KittyGramMessageEvent else {
+                return
+            }
+            let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+            let isRussian = presentationData.strings.primaryComponent.languageCode == "ru"
+            let showNames = self.inAppNotificationSettings?.displayNameOnLockscreen ?? true
+            func quoted(_ text: String) -> String {
+                if text.isEmpty {
+                    return event.hasMedia ? (isRussian ? "медиа" : "media") : ""
+                }
+                let trimmed = text.count > 120 ? String(text.prefix(120)) + "…" : text
+                return "«" + trimmed + "»"
+            }
+            var body: String
+            switch event.kind {
+            case .deleted:
+                body = isRussian ? "🗑 Удалил(а) сообщение" : "🗑 Deleted a message"
+                if KittyGramSettings.shared.notificationText, !quoted(event.text).isEmpty {
+                    body += ": " + quoted(event.text)
+                }
+            case .edited:
+                body = isRussian ? "✏️ Изменил(а) сообщение" : "✏️ Edited a message"
+                if KittyGramSettings.shared.notificationText {
+                    let oldText = quoted(event.text)
+                    let newText = quoted(event.newText ?? "")
+                    if !oldText.isEmpty && !newText.isEmpty {
+                        body += ": " + oldText + " → " + newText
+                    } else if !newText.isEmpty {
+                        body += ": " + newText
+                    }
+                }
+            }
+            let title = event.authorName.isEmpty ? "KittyGram" : event.authorName
+            let kindId = event.kind == .deleted ? "deleted" : "edited"
+            kittyGramPostLocalNotification(identifier: "kittygram-\(kindId)-\(event.peerId.toInt64())-\(event.messageId)-\(Int(Date().timeIntervalSince1970))", threadIdentifier: "\(event.peerId.toInt64())", title: title, body: body, namesOnLockScreen: showNames, placeholder: isRussian ? "Новое событие" : "New event")
+        })
+        
         self.notificationMessagesDisposable.set((context.account.stateManager.notificationMessages
         |> mapToSignal { messageList in
             return engine.data.get(EngineDataMap(

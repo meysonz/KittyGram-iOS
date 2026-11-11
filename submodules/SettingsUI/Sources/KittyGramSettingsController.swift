@@ -269,9 +269,11 @@ private func kittyGramSettingsEntries(page: KittyGramSettingsPage, isRussian: Bo
         toggle("saveDeleted", "Save Deleted Messages", "Сохранять удалённые сообщения", 3)
         toggle("saveEdits", "Save Edits History", "Хранить историю правок", 3)
         toggle("saveInBots", "Save in Bot Dialogs", "Сохранять в диалогах с ботами", 3)
+        toggle("notifyDeleted", "Notify About Deletions", "Уведомлять об удалении", 3)
+        toggle("notifyEdited", "Notify About Edits", "Уведомлять об изменении", 3)
         toggle("keepSelfDestructing", "Keep Self-Destructing Media", "Не сжигать исчезающие медиа", 3)
         toggle("selfDestructScreenshots", "Self-Destructing Media Screenshots", "Скриншоты исчезающих медиа", 3)
-        entries.append(.footer(id(), tr("Self-destructing photos, videos and voice messages open without starting their timer and can be saved or forwarded (as a copy). Screenshots of them are allowed and the sender is not told. Everything is kept only on this device.", "Исчезающие фото, видео и голосовые открываются без таймера, их можно сохранить или переслать (копией). Скриншоты разрешены, и отправитель о них не узнает. Всё хранится только на этом устройстве."), 3))
+        entries.append(.footer(id(), tr("Self-destructing photos, videos and voice messages open without starting their timer and can be saved or forwarded (as a copy). Screenshots of them are allowed and the sender is not told. "Notify About Deletions / Edits" shows a notification when someone deletes or edits their message in a private chat. Everything is kept only on this device.", "Исчезающие фото, видео и голосовые открываются без таймера, их можно сохранить или переслать (копией). Скриншоты разрешены, и отправитель о них не узнает. «Уведомлять об удалении / изменении» присылает уведомление, когда собеседник в личке удаляет или редактирует своё сообщение. Всё хранится только на этом устройстве."), 3))
 
         entries.append(.header(id(), tr("OTHER", "ДРУГОЕ"), 4))
         toggle("disableAds", "Disable Ads", "Отключить рекламу", 4)

@@ -52,6 +52,7 @@ func mergedServerMessageUpdate(previous previousMessage: Message, updated messag
         if textChanged || mediaChanged {
             let previousMedia = mediaChanged ? previousMessage.media.filter { !($0 is TelegramMediaWebpage) } : []
             kittyGramVersions.append(KittyGramEditVersion(text: previousMessage.text, date: previousMessage.editedTime ?? previousMessage.timestamp, media: previousMedia))
+            kittyGramPostMessageEvent(kind: .edited, message: previousMessage, newText: message.text)
         }
     }
     updatedAttributes.removeAll(where: { $0 is KittyGramEditHistoryAttribute })

@@ -69,6 +69,8 @@ public final class KittyGramSettings: @unchecked Sendable {
         "saveEdits": true,
         "saveInBots": false,
         "keepSelfDestructing": true,
+        "notifyDeleted": false,
+        "notifyEdited": false,
         "selfDestructScreenshots": true,
         "disableAds": false,
         "backgroundMode": false,

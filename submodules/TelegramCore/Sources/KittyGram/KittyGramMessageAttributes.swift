@@ -142,6 +142,7 @@ func kittyGramMarkMessagesDeleted(transaction: Transaction, ids: [MessageId]) ->
             kept.insert(id)
             continue
         }
+        kittyGramPostMessageEvent(kind: .deleted, message: message, newText: nil)
         transaction.updateMessage(id, update: { currentMessage in
             var storeForwardInfo: StoreMessageForwardInfo?
             if let forwardInfo = currentMessage.forwardInfo {
