@@ -320,6 +320,14 @@ class ThemeSettingsChatPreviewItemNode: ListViewItemNode {
                     strongSelf.maskNode.frame = backgroundFrame.inset(by: UIEdgeInsets(top: 0.0, left: params.leftInset, bottom: 0.0, right: params.rightInset))
                     strongSelf.topStripeNode.frame = CGRect(origin: CGPoint(x: 0.0, y: -min(insets.top, separatorHeight)), size: CGSize(width: layoutSize.width, height: separatorHeight))
                     strongSelf.bottomStripeNode.frame = CGRect(origin: CGPoint(x: bottomStripeInset, y: contentSize.height + bottomStripeOffset), size: CGSize(width: layoutSize.width - bottomStripeInset, height: separatorHeight))
+                    
+                    // KittyGram edit history: bubbles sit on the screen background, without a strip of the chat wallpaper.
+                    if !item.customMessages.isEmpty {
+                        strongSelf.backgroundNode?.isHidden = true
+                        strongSelf.maskNode.isHidden = true
+                        strongSelf.topStripeNode.isHidden = true
+                        strongSelf.bottomStripeNode.isHidden = true
+                    }
                 }
             })
         }
