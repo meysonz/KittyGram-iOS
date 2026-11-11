@@ -2,13 +2,10 @@ import Foundation
 import Postbox
 import SwiftSignalKit
 
-/// "Keep Self-Destructing Media": the server refuses to forward timer / view-once media, so a forward of such a
+/// Kept deleted messages and (with "Keep Self-Destructing Media") timer / view-once media: the server refuses to forward timer / view-once media, so a forward of such a
 /// message is sent as a new message with a copy of the already downloaded file (no timer, no "forwarded from").
 /// Media that is not on the device yet stays a normal forward.
 func kittyGramCopySelfDestructForwards(postbox: Postbox, messages: [EnqueueMessage]) -> Signal<[EnqueueMessage], NoError> {
-    if !KittyGramSettings.shared.keepSelfDestructing {
-        return .single(messages)
-    }
     if !messages.contains(where: { if case .forward = $0 { return true } else { return false } }) {
         return .single(messages)
     }
@@ -17,8 +14,20 @@ func kittyGramCopySelfDestructForwards(postbox: Postbox, messages: [EnqueueMessa
             guard case let .forward(source, threadId, _, _, correlationId) = message else {
                 return message
             }
-            guard source.peerId.namespace != Namespaces.Peer.SecretChat, let sourceMessage = transaction.getMessage(source), sourceMessage.kittyGramIsSelfDestructingMedia else {
+            // Kept deleted messages no longer exist on the server, so they too are sent as a copy.
+            guard source.peerId.namespace != Namespaces.Peer.SecretChat, let sourceMessage = transaction.getMessage(source), (KittyGramSettings.shared.keepSelfDestructing && sourceMessage.kittyGramIsSelfDestructingMedia) || sourceMessage.kittyGramIsDeleted else {
                 return message
+            }
+            var copiedAttributes: [MessageAttribute] = []
+            if let entities = sourceMessage.textEntitiesAttribute {
+                copiedAttributes.append(TextEntitiesMessageAttribute(entities: entities.entities))
+            }
+            let copyableMedia = sourceMessage.media.filter { !($0 is TelegramMediaWebpage) }
+            if copyableMedia.isEmpty {
+                if sourceMessage.text.isEmpty {
+                    return message
+                }
+                return .message(text: sourceMessage.text, attributes: copiedAttributes, inlineStickers: [:], mediaReference: nil, threadId: threadId, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: correlationId, bubbleUpEmojiOrStickersets: [])
             }
             var copiedMedia: Media?
             for media in sourceMessage.media {
@@ -43,7 +52,7 @@ func kittyGramCopySelfDestructForwards(postbox: Postbox, messages: [EnqueueMessa
             guard let media = copiedMedia else {
                 return message
             }
-            return .message(text: sourceMessage.text, attributes: [], inlineStickers: [:], mediaReference: .standalone(media: media), threadId: threadId, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: correlationId, bubbleUpEmojiOrStickersets: [])
+            return .message(text: sourceMessage.text, attributes: copiedAttributes, inlineStickers: [:], mediaReference: .standalone(media: media), threadId: threadId, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: correlationId, bubbleUpEmojiOrStickersets: [])
         }
     }
 }
