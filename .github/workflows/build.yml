@@ -22,6 +22,23 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Free disk space
+        run: |
+          df -h / || true
+          XCODE_VERSION=$(python3 -c 'import json;print(json.load(open("versions.json"))["xcode"])')
+          # Other Xcode versions, simulators and toolchains this build never uses.
+          for x in /Applications/Xcode*.app; do
+            case "$x" in
+              "/Applications/Xcode_${XCODE_VERSION}.app") ;;
+              *) [ -L "$x" ] || sudo rm -rf "$x" & ;;
+            esac
+          done
+          sudo rm -rf "$HOME/Library/Android" /usr/local/share/dotnet "$HOME/.dotnet" "$HOME/hostedtoolcache" \
+            /Users/runner/hostedtoolcache "$HOME/Library/Developer/CoreSimulator/Caches" /usr/local/lib/node_modules \
+            "$HOME/.ghcup" /opt/homebrew/Caskroom "$HOME/Library/Caches/Homebrew" &
+          wait
+          df -h / || true
+
       - name: Check secrets
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
@@ -41,8 +58,9 @@ jobs:
       - name: Create canonical source directory
         run: |
           sudo mkdir -p /Users/Shared
-          cp -R "$GITHUB_WORKSPACE" /Users/Shared/
-          mv /Users/Shared/$(basename "$GITHUB_WORKSPACE") /Users/Shared/telegram-ios
+          sudo chmod 777 /Users/Shared
+          mv "$GITHUB_WORKSPACE" /Users/Shared/telegram-ios
+          mkdir -p "$GITHUB_WORKSPACE"
 
       - name: Download Bazel
         env:
@@ -119,8 +137,10 @@ jobs:
           EOF
 
           python3 build-system/Make/ImportCertificates.py --path build-system/fake-codesigning/certs
+          touch /tmp/kittygram_build_start
+          set -o pipefail
           ok=0
-          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+          for attempt in 1 2 3 4 5 6; do
             if python3 -u build-system/Make/Make.py \
               --bazelUserRoot="$BAZEL_USER_ROOT" \
               --cacheDir=/Users/Shared/bazel_disk_cache \
@@ -128,12 +148,17 @@ jobs:
               --configurationPath="build-system/kittygram-configuration.json" \
               --codesigningInformationPath=build-system/fake-codesigning \
               --configuration="${CONFIGURATION:-debug_arm64}" \
-              --buildNumber="$BUILD_NUMBER"; then
+              --buildNumber="$BUILD_NUMBER" 2>&1 | tee /tmp/kittygram_build.log; then
               ok=1
               break
             fi
+            df -h / || true
+            if grep -qE "No space left on device|: error: |error: emit-module command failed" /tmp/kittygram_build.log; then
+              echo "Not a network problem (compile error or full disk), not retrying"
+              break
+            fi
             echo "Build attempt $attempt failed, retrying"
-            sleep 120
+            sleep 60
           done
           [ "$ok" = 1 ]
 
@@ -179,8 +204,21 @@ jobs:
           print("bundle id:", data.get("CFBundleIdentifier"))
           PYEOF
           (cd "$STRIP_DIR" && zip -q -r -y "$OUT_ABS/KittyGram-sideload.ipa" Payload)
-          rm -rf "$STRIP_DIR"
+          rm -rf "$STRIP_DIR" "$OUT_ABS/KittyGram.ipa"
           ls -la "$OUTPUT_PATH"
+          df -h / || true
+
+      - name: Trim Bazel cache
+        if: always()
+        run: |
+          CACHE=/Users/Shared/bazel_disk_cache
+          [ -d "$CACHE" ] || exit 0
+          du -sh "$CACHE" || true
+          SIZE_KB=$(du -sk "$CACHE" | cut -f1)
+          if [ "$SIZE_KB" -gt 5000000 ] && [ -f /tmp/kittygram_build_start ]; then
+            find "$CACHE" -type f ! -newer /tmp/kittygram_build_start -delete || true
+            du -sh "$CACHE" || true
+          fi
 
       - name: Save Bazel cache
         if: always()
@@ -194,7 +232,7 @@ jobs:
           IPA_ZIP_PASSWORD: ${{ secrets.IPA_ZIP_PASSWORD }}
         run: |
           cd /Users/Shared/telegram-ios/build/artifacts
-          zip -P "$IPA_ZIP_PASSWORD" KittyGram-ipa.zip KittyGram.ipa KittyGram-sideload.ipa
+          zip -P "$IPA_ZIP_PASSWORD" KittyGram-ipa.zip KittyGram-sideload.ipa
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
