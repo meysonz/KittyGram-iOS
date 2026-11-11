@@ -45,6 +45,16 @@ final class KittyGramBackgroundKeeper {
         self.wantsToRun = shouldRun
         if shouldRun {
             self.start()
+            // "Notify When Unloaded" can be switched while the app keeps running.
+            if self.player != nil {
+                if KittyGramSettings.shared.bool("backgroundWatchdog") {
+                    if self.watchdogTimer == nil {
+                        self.startWatchdog()
+                    }
+                } else if self.watchdogTimer != nil {
+                    self.stopWatchdog()
+                }
+            }
         } else {
             self.stop()
         }
@@ -69,7 +79,9 @@ final class KittyGramBackgroundKeeper {
         player.prepareToPlay()
         if player.play() {
             self.player = player
-            self.startWatchdog()
+            if KittyGramSettings.shared.bool("backgroundWatchdog") {
+                self.startWatchdog()
+            }
         }
     }
 

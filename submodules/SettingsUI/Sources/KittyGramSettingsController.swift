@@ -287,8 +287,9 @@ private func kittyGramSettingsEntries(page: KittyGramSettingsPage, isRussian: Bo
     case .general:
         entries.append(.header(id(), tr("NOTIFICATIONS", "УВЕДОМЛЕНИЯ"), 0))
         toggle("backgroundMode", "Work in Background", "Работать в фоне", 0)
+        toggle("backgroundWatchdog", "Notify When Stopped", "Сообщать, если фон прервался", 0)
         toggle("notificationText", "Show Message Text", "Текст в уведомлениях", 0)
-        entries.append(.footer(id(), tr("KittyGram cannot receive push notifications. With \"Work in Background\" it stays connected after you leave it, shows a notification for every new message at once and saves deleted and edited messages right away. This uses more battery. Without it iOS wakes the app now and then to check for messages.", "KittyGram не может получать push-уведомления. С «Работать в фоне» он остаётся на связи после сворачивания, сразу показывает уведомление о каждом новом сообщении и сразу сохраняет удалённые и изменённые. Тратит больше батареи. Без этого iOS иногда будит приложение, чтобы проверить сообщения."), 0))
+        entries.append(.footer(id(), tr("KittyGram cannot receive push notifications. With \"Work in Background\" it stays connected after you leave it, shows a notification for every new message at once and saves deleted and edited messages right away. This uses more battery. Without it iOS wakes the app now and then to check for messages. If iOS unloads KittyGram or you close it, a notification tells you to open it again.", "KittyGram не может получать push-уведомления. С «Работать в фоне» он остаётся на связи после сворачивания, сразу показывает уведомление о каждом новом сообщении и сразу сохраняет удалённые и изменённые. Тратит больше батареи. Без этого iOS иногда будит приложение, чтобы проверить сообщения. Если iOS выгрузит KittyGram или ты его закроешь, придёт уведомление, что его нужно открыть снова."), 0))
 
         entries.append(.header(id(), tr("GENERAL", "ОБЩИЕ"), 1))
         group("confirm", "Send Confirmations", "Подтверждать отправку", [
