@@ -176,11 +176,19 @@ private func kittyGramEnsureNotificationCategories(placeholder: String, completi
 }
 
 /// Shows a local notification for a message that arrived while the app is not on screen (KittyGram has no push).
-func kittyGramPostLocalNotification(identifier: String, threadIdentifier: String, title: String, body: String, namesOnLockScreen: Bool, placeholder: String) {
+func kittyGramPostLocalNotification(identifier: String, threadIdentifier: String, title: String, body: String, namesOnLockScreen: Bool, placeholder: String, imagePath: String? = nil) {
     kittyGramEnsureNotificationCategories(placeholder: placeholder, completion: {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
+        // A small picture on the right, like Telegram's notifications (photo, or the frame of a video). iOS takes the
+        // file over, so give it a copy with a proper extension.
+        if let imagePath {
+            let copyPath = NSTemporaryDirectory() + "kittygram-notification-\(UUID().uuidString).jpg"
+            if (try? FileManager.default.copyItem(atPath: imagePath, toPath: copyPath)) != nil, let attachment = try? UNNotificationAttachment(identifier: "image", url: URL(fileURLWithPath: copyPath), options: [UNNotificationAttachmentOptionsTypeHintKey: "public.jpeg"]) {
+                content.attachments = [attachment]
+            }
+        }
         content.sound = .default
         content.threadIdentifier = threadIdentifier
         content.categoryIdentifier = namesOnLockScreen ? kittyGramCategoryWithNames : kittyGramCategoryWithoutNames

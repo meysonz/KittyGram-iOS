@@ -5,6 +5,7 @@ import TelegramPresentationData
 import TelegramUIPreferences
 import SwiftSignalKit
 import TelegramCore
+import TelegramStringFormatting
 import Display
 import LegacyComponents
 import DeviceAccess
@@ -372,17 +373,21 @@ final class AuthorizedApplicationContext {
                         var body: String
                         if !KittyGramSettings.shared.notificationText || !category.displayPreviews {
                             body = isRussian ? "Новое сообщение" : "New message"
-                        } else if !message.text.isEmpty {
-                            body = message.text
-                        } else if !message.media.isEmpty {
-                            body = isRussian ? "📎 Медиа" : "📎 Media"
                         } else {
-                            body = isRussian ? "Новое сообщение" : "New message"
+                            // Telegram's own wording: "📹 Video message", "🖼 Photo", "🎤 Voice message", caption text...
+                            let description = descriptionStringForMessage(contentSettings: context.currentContentSettings.with { $0 }, message: EngineMessage(message), strings: presentationData.strings, nameDisplayOrder: presentationData.nameDisplayOrder, dateTimeFormat: presentationData.dateTimeFormat, accountPeerId: context.account.peerId).0.string
+                            if !description.isEmpty {
+                                body = description
+                            } else if !message.text.isEmpty {
+                                body = message.text
+                            } else {
+                                body = isRussian ? "Новое сообщение" : "New message"
+                            }
                         }
                         if body.count > 300 {
                             body = String(body.prefix(300)) + "…"
                         }
-                        kittyGramPostLocalNotification(identifier: "kittygram-\(message.id.peerId.toInt64())-\(message.id.id)", threadIdentifier: "\(message.id.peerId.toInt64())", title: title, body: body, namesOnLockScreen: showNames, placeholder: isRussian ? "Новое сообщение" : "New message")
+                        kittyGramPostLocalNotification(identifier: "kittygram-\(message.id.peerId.toInt64())-\(message.id.id)", threadIdentifier: "\(message.id.peerId.toInt64())", title: title, body: body, namesOnLockScreen: showNames, placeholder: isRussian ? "Новое сообщение" : "New message", imagePath: KittyGramSettings.shared.notificationText && category.displayPreviews ? kittyGramNotificationImagePath(context: context, message: EngineMessage(message)) : nil)
                     }
                 })
                 return
@@ -1090,4 +1095,18 @@ final class AuthorizedApplicationContext {
             self.lockedCoveringView.updateSnapshot(nil)
         }
     }
+}
+
+
+/// The downloaded picture of a message for its notification: the photo, or the preview frame of a video.
+private func kittyGramNotificationImagePath(context: AccountContext, message: EngineMessage) -> String? {
+    for media in message.media {
+        if let image = media as? TelegramMediaImage, let representation = largestImageRepresentation(image.representations) {
+            return context.engine.resources.completedResourcePath(id: EngineMediaResource.Id(representation.resource.id))
+        }
+        if let file = media as? TelegramMediaFile, file.isVideo || file.isInstantVideo || file.isAnimated, let representation = largestImageRepresentation(file.previewRepresentations) {
+            return context.engine.resources.completedResourcePath(id: EngineMediaResource.Id(representation.resource.id))
+        }
+    }
+    return nil
 }
