@@ -14,6 +14,12 @@ final class KittyGramBackgroundKeeper {
     private var player: AVAudioPlayer?
     private var wantsToRun = false
     private var interruptionObserver: NSObjectProtocol?
+    private var watchdogTimer: Foundation.Timer?
+
+    /// A notification kept two and a half minutes in the future while the app runs in the background. While alive the
+    /// app pushes it forward every minute; if iOS unloads the app (memory, crash) or it is swiped away, nobody moves it
+    /// and it fires, telling the user that background work stopped.
+    private static let watchdogIdentifier = "kittygram.background.watchdog"
 
     var isRunning: Bool {
         return self.player != nil
@@ -63,10 +69,38 @@ final class KittyGramBackgroundKeeper {
         player.prepareToPlay()
         if player.play() {
             self.player = player
+            self.startWatchdog()
         }
     }
 
+    private func startWatchdog() {
+        self.watchdogTimer?.invalidate()
+        self.scheduleWatchdogNotification()
+        self.watchdogTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true, block: { [weak self] _ in
+            self?.scheduleWatchdogNotification()
+        })
+    }
+
+    private func stopWatchdog() {
+        self.watchdogTimer?.invalidate()
+        self.watchdogTimer = nil
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [KittyGramBackgroundKeeper.watchdogIdentifier])
+    }
+
+    private func scheduleWatchdogNotification() {
+        let isRussian = Locale.preferredLanguages.first?.hasPrefix("ru") ?? false
+        let content = UNMutableNotificationContent()
+        content.title = "KittyGram"
+        content.body = isRussian ? "KittyGram перестал работать в фоне. Открой его, чтобы снова получать уведомления и сохранять сообщения." : "KittyGram stopped working in the background. Open it to get notifications and save messages again."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 150.0, repeats: false)
+        // Adding a request with the same identifier replaces the pending one, which moves it forward.
+        let request = UNNotificationRequest(identifier: KittyGramBackgroundKeeper.watchdogIdentifier, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+    }
+
     private func stop() {
+        self.stopWatchdog()
         guard let player = self.player else {
             return
         }
