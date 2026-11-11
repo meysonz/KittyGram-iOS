@@ -109,13 +109,36 @@ private func kittyGramSilentWave() -> Data {
     return data
 }
 
+/// Notification categories that hide the content on the lock screen like Telegram: with "Names on Lock Screen" the
+/// sender's name stays visible there, without it only the placeholder does. After unlocking, iOS shows everything.
+private let kittyGramCategoryWithNames = "kittygram.message.names"
+private let kittyGramCategoryWithoutNames = "kittygram.message.nonames"
+
+private func kittyGramEnsureNotificationCategories(placeholder: String, completion: @escaping () -> Void) {
+    let center = UNUserNotificationCenter.current()
+    center.getNotificationCategories(completionHandler: { existing in
+        if existing.contains(where: { $0.identifier == kittyGramCategoryWithNames }) && existing.contains(where: { $0.identifier == kittyGramCategoryWithoutNames }) {
+            completion()
+            return
+        }
+        var categories = existing.filter { $0.identifier != kittyGramCategoryWithNames && $0.identifier != kittyGramCategoryWithoutNames }
+        categories.insert(UNNotificationCategory(identifier: kittyGramCategoryWithNames, actions: [], intentIdentifiers: [], hiddenPreviewsBodyPlaceholder: placeholder, options: [.hiddenPreviewsShowTitle]))
+        categories.insert(UNNotificationCategory(identifier: kittyGramCategoryWithoutNames, actions: [], intentIdentifiers: [], hiddenPreviewsBodyPlaceholder: placeholder, options: []))
+        center.setNotificationCategories(categories)
+        completion()
+    })
+}
+
 /// Shows a local notification for a message that arrived while the app is not on screen (KittyGram has no push).
-func kittyGramPostLocalNotification(identifier: String, threadIdentifier: String, title: String, body: String) {
-    let content = UNMutableNotificationContent()
-    content.title = title
-    content.body = body
-    content.sound = .default
-    content.threadIdentifier = threadIdentifier
-    let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
-    UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+func kittyGramPostLocalNotification(identifier: String, threadIdentifier: String, title: String, body: String, namesOnLockScreen: Bool, placeholder: String) {
+    kittyGramEnsureNotificationCategories(placeholder: placeholder, completion: {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.threadIdentifier = threadIdentifier
+        content.categoryIdentifier = namesOnLockScreen ? kittyGramCategoryWithNames : kittyGramCategoryWithoutNames
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+    })
 }

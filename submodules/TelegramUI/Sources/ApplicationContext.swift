@@ -333,7 +333,7 @@ final class AuthorizedApplicationContext {
                 // ("Work in Background" or an iOS background refresh) are shown as local notifications. Telegram's own
                 // notification settings apply: muted chats (`notify`) and the switches for private chats, groups, channels.
                 let context = strongSelf.context
-                // Telegram's "Names on Lock Screen": when off, the notification does not say who wrote.
+                // Telegram's "Names on Lock Screen": when off, the locked screen does not show who wrote (iOS hides it).
                 let showNames = strongSelf.inAppNotificationSettings?.displayNameOnLockscreen ?? true
                 let _ = (context.engine.data.get(TelegramEngine.EngineData.Item.NotificationSettings.Global())
                 |> deliverOnMainQueue).start(next: { globalSettings in
@@ -366,7 +366,7 @@ final class AuthorizedApplicationContext {
                             let chatTitle = EnginePeer(chatPeer).displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
                             title = title.isEmpty ? chatTitle : "\(title) · \(chatTitle)"
                         }
-                        if title.isEmpty || !showNames {
+                        if title.isEmpty {
                             title = "KittyGram"
                         }
                         var body: String
@@ -382,7 +382,7 @@ final class AuthorizedApplicationContext {
                         if body.count > 300 {
                             body = String(body.prefix(300)) + "…"
                         }
-                        kittyGramPostLocalNotification(identifier: "kittygram-\(message.id.peerId.toInt64())-\(message.id.id)", threadIdentifier: "\(message.id.peerId.toInt64())", title: title, body: body)
+                        kittyGramPostLocalNotification(identifier: "kittygram-\(message.id.peerId.toInt64())-\(message.id.id)", threadIdentifier: "\(message.id.peerId.toInt64())", title: title, body: body, namesOnLockScreen: showNames, placeholder: isRussian ? "Новое сообщение" : "New message")
                     }
                 })
                 return
