@@ -740,7 +740,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                     }
                 }
             } else if let image = media as? TelegramMediaImage {
-                if !messages[0].containsSecretMedia {
+                if !messages[0].containsSecretMedia || messages[0].kittyGramKeepsSelfDestructingMedia {
                     loadCopyMediaResource = largestImageRepresentation(image.representations)?.resource
                 }
             } else if let dice = media as? TelegramMediaDice {
@@ -2703,7 +2703,7 @@ func chatAvailableMessageActionsImpl(engine: TelegramEngine, accountPeerId: Engi
                     }
                 }
                 
-                if message.isCopyProtected() || message.containsSecretMedia {
+                if message.isCopyProtected() || (message.containsSecretMedia && !message.kittyGramKeepsSelfDestructingMedia) {
                     isCopyProtected = true
                 }
                 
