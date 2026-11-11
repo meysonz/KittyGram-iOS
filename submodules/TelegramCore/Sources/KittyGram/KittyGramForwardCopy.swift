@@ -74,15 +74,15 @@ func kittyGramCopySelfDestructForwards(postbox: Postbox, messages: [EnqueueMessa
 }
 
 
-/// Puts a quote of the deleted message at the top of the reply: the author's @username (their name when they have
-/// none) in bold, then the deleted text (or a short label for media). The reply's own formatting moves down with it.
+/// Puts a quote of the deleted message at the top of the reply: the author's profile name (the @username when the
+/// name is empty) in bold, then the deleted text (or a short label for media). The reply's own formatting moves down with it.
 private func kittyGramQuoteDeletedMessage(_ target: Message, text: String, attributes: [MessageAttribute]) -> (String, [MessageAttribute]) {
     var author = ""
     if let peer = target.author {
-        if let addressName = peer.addressName, !addressName.isEmpty {
+        // The profile name; the @username only when the name is empty.
+        author = peer.debugDisplayTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if author.isEmpty, let addressName = peer.addressName, !addressName.isEmpty {
             author = "@" + addressName
-        } else {
-            author = peer.debugDisplayTitle
         }
     }
     var quoted = target.text
