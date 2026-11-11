@@ -1615,7 +1615,8 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }
         }
         
-        if (loggingSettings.logToFile || loggingSettings.logToConsole) && !downloadableMediaResourceInfos.isEmpty {
+        // KittyGram keeps logging to a file for diagnosis, but does not offer Telegram's debug "Send Logs" item.
+        if kittyGramOffersSendLogs && (loggingSettings.logToFile || loggingSettings.logToConsole) && !downloadableMediaResourceInfos.isEmpty {
             actions.append(.action(ContextMenuActionItem(text: "Send Logs", icon: { theme in
                 return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Message"), color: theme.actionSheet.primaryTextColor)
             }, action: { _, f in
@@ -4193,4 +4194,11 @@ private final class ChatRateTranscriptionContextItemNode: ASDisplayNode, Context
     func actionNode(at point: CGPoint) -> ContextActionNodeProtocol {
         return self
     }
+}
+
+
+/// KittyGram: Telegram's debug "Send Logs" item stays hidden (a constant `false` in the condition would be a
+/// "will never be executed" warning, which fails the build).
+private var kittyGramOffersSendLogs: Bool {
+    return false
 }
