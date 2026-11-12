@@ -16,8 +16,8 @@ final class KittyGramBackgroundKeeper {
     private var interruptionObserver: NSObjectProtocol?
     private var watchdogTimer: Foundation.Timer?
 
-    /// A notification kept two and a half minutes in the future while the app runs in the background. While alive the
-    /// app pushes it forward every minute; if iOS unloads the app (memory, crash) or it is swiped away, nobody moves it
+    /// A notification kept 40 seconds in the future while the app runs in the background. While alive the
+    /// app pushes it forward every 15 seconds; if iOS unloads the app (memory, crash) or it is swiped away, nobody moves it
     /// and it fires, telling the user that background work stopped.
     private static let watchdogIdentifier = "kittygram.background.watchdog"
 
@@ -88,7 +88,7 @@ final class KittyGramBackgroundKeeper {
     private func startWatchdog() {
         self.watchdogTimer?.invalidate()
         self.scheduleWatchdogNotification()
-        self.watchdogTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true, block: { [weak self] _ in
+        self.watchdogTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true, block: { [weak self] _ in
             self?.watchdogTick()
         })
     }
@@ -100,7 +100,7 @@ final class KittyGramBackgroundKeeper {
     }
 
     /// The app can stay alive in the background but lose its connection to Telegram (no messages arrive then). After
-    /// three minutes without a connection the watchdog is no longer moved forward, so it fires as if the app had died.
+    /// a minute and a half without a connection the watchdog is no longer moved forward, so it fires as if the app had died.
     private var isConnected = true
     private var lastConnectedDate = Date()
 
@@ -112,7 +112,7 @@ final class KittyGramBackgroundKeeper {
     }
 
     private func watchdogTick() {
-        if self.isConnected || Date().timeIntervalSince(self.lastConnectedDate) < 180.0 {
+        if self.isConnected || Date().timeIntervalSince(self.lastConnectedDate) < 90.0 {
             self.scheduleWatchdogNotification()
         }
     }
@@ -123,7 +123,7 @@ final class KittyGramBackgroundKeeper {
         content.title = "KittyGram"
         content.body = isRussian ? "KittyGram перестал получать сообщения в фоне. Открой его, чтобы снова получать уведомления и сохранять сообщения." : "KittyGram stopped receiving messages in the background. Open it to get notifications and save messages again."
         content.sound = .default
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 150.0, repeats: false)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 40.0, repeats: false)
         // Adding a request with the same identifier replaces the pending one, which moves it forward.
         let request = UNNotificationRequest(identifier: KittyGramBackgroundKeeper.watchdogIdentifier, content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
