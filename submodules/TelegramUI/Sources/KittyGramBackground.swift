@@ -89,7 +89,7 @@ final class KittyGramBackgroundKeeper {
         self.watchdogTimer?.invalidate()
         self.scheduleWatchdogNotification()
         self.watchdogTimer = Foundation.Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true, block: { [weak self] _ in
-            self?.scheduleWatchdogNotification()
+            self?.watchdogTick()
         })
     }
 
@@ -99,11 +99,29 @@ final class KittyGramBackgroundKeeper {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [KittyGramBackgroundKeeper.watchdogIdentifier])
     }
 
+    /// The app can stay alive in the background but lose its connection to Telegram (no messages arrive then). After
+    /// three minutes without a connection the watchdog is no longer moved forward, so it fires as if the app had died.
+    private var isConnected = true
+    private var lastConnectedDate = Date()
+
+    func reportConnection(connected: Bool) {
+        if connected || self.isConnected {
+            self.lastConnectedDate = Date()
+        }
+        self.isConnected = connected
+    }
+
+    private func watchdogTick() {
+        if self.isConnected || Date().timeIntervalSince(self.lastConnectedDate) < 180.0 {
+            self.scheduleWatchdogNotification()
+        }
+    }
+
     private func scheduleWatchdogNotification() {
         let isRussian = Locale.preferredLanguages.first?.hasPrefix("ru") ?? false
         let content = UNMutableNotificationContent()
         content.title = "KittyGram"
-        content.body = isRussian ? "KittyGram перестал работать в фоне. Открой его, чтобы снова получать уведомления и сохранять сообщения." : "KittyGram stopped working in the background. Open it to get notifications and save messages again."
+        content.body = isRussian ? "KittyGram перестал получать сообщения в фоне. Открой его, чтобы снова получать уведомления и сохранять сообщения." : "KittyGram stopped receiving messages in the background. Open it to get notifications and save messages again."
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 150.0, repeats: false)
         // Adding a request with the same identifier replaces the pending one, which moves it forward.
@@ -184,8 +202,9 @@ func kittyGramPostLocalNotification(identifier: String, threadIdentifier: String
         // A small picture on the right, like Telegram's notifications (photo, or the frame of a video). iOS takes the
         // file over, so give it a copy with a proper extension.
         if let imagePath {
-            let copyPath = NSTemporaryDirectory() + "kittygram-notification-\(UUID().uuidString).jpg"
-            if (try? FileManager.default.copyItem(atPath: imagePath, toPath: copyPath)) != nil, let attachment = try? UNNotificationAttachment(identifier: "image", url: URL(fileURLWithPath: copyPath), options: [UNNotificationAttachmentOptionsTypeHintKey: "public.jpeg"]) {
+            let isPng = imagePath.hasSuffix(".png")
+            let copyPath = NSTemporaryDirectory() + "kittygram-notification-\(UUID().uuidString)" + (isPng ? ".png" : ".jpg")
+            if (try? FileManager.default.copyItem(atPath: imagePath, toPath: copyPath)) != nil, let attachment = try? UNNotificationAttachment(identifier: "image", url: URL(fileURLWithPath: copyPath), options: [UNNotificationAttachmentOptionsTypeHintKey: isPng ? "public.png" : "public.jpeg"]) {
                 content.attachments = [attachment]
             }
         }

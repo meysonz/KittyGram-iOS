@@ -1,5 +1,7 @@
 import Foundation
 import UIKit
+import AVFoundation
+import TinyThumbnail
 import Intents
 import TelegramPresentationData
 import TelegramUIPreferences
@@ -118,6 +120,8 @@ final class AuthorizedApplicationContext {
     private let inAppNotificationSettingsDisposable = MetaDisposable()
     private let notificationMessagesDisposable = MetaDisposable()
     private var kittyGramMessageEventObserver: NSObjectProtocol?
+    private var kittyGramConnectionDisposable: Disposable?
+    private var kittyGramPendingDeletions: [EnginePeer.Id: [KittyGramMessageEvent]] = [:]
     private let termsOfServiceUpdatesDisposable = MetaDisposable()
     private let termsOfServiceProceedToBotDisposable = MetaDisposable()
     private let watchNavigateToMessageDisposable = MetaDisposable()
@@ -296,45 +300,47 @@ final class AuthorizedApplicationContext {
         }))
 
         let engine = context.engine
+        // KittyGram background watchdog: tell it whether the account is connected (alive but offline counts as stopped).
+        self.kittyGramConnectionDisposable = (context.account.network.connectionStatus
+        |> deliverOnMainQueue).start(next: { status in
+            switch status {
+            case .online, .updating:
+                KittyGramBackgroundKeeper.shared.reportConnection(connected: true)
+            case .connecting, .waitingForNetwork:
+                KittyGramBackgroundKeeper.shared.reportConnection(connected: false)
+            }
+        })
         // KittyGram "Notify About Deletions / Edits" in private chats.
         self.kittyGramMessageEventObserver = NotificationCenter.default.addObserver(forName: KittyGramMessageEvent.notification, object: nil, queue: .main, using: { [weak self] notification in
             guard let self, let event = notification.userInfo?["event"] as? KittyGramMessageEvent else {
                 return
             }
-            let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
-            let isRussian = presentationData.strings.primaryComponent.languageCode == "ru"
-            let showNames = self.inAppNotificationSettings?.displayNameOnLockscreen ?? true
-            func quoted(_ text: String) -> String {
-                if text.isEmpty {
-                    return event.hasMedia ? (isRussian ? "медиа" : "media") : ""
-                }
-                let trimmed = text.count > 120 ? String(text.prefix(120)) + "…" : text
-                return "«" + trimmed + "»"
-            }
-            var body: String
             switch event.kind {
-            case .deleted:
-                body = isRussian ? "🗑 Удалил(а) сообщение" : "🗑 Deleted a message"
-                if KittyGramSettings.shared.notificationText, !quoted(event.text).isEmpty {
-                    body += ": " + quoted(event.text)
-                }
             case .edited:
-                body = isRussian ? "✏️ Изменил(а) сообщение" : "✏️ Edited a message"
-                if KittyGramSettings.shared.notificationText {
-                    let oldText = quoted(event.text)
-                    let newText = quoted(event.newText ?? "")
-                    if !oldText.isEmpty && !newText.isEmpty {
-                        body += ": " + oldText + " → " + newText
-                    } else if !newText.isEmpty {
-                        body += ": " + newText
-                    }
+                self.kittyGramPostMessageEventNotification(event)
+            case .deleted:
+                // Messages deleted together arrive one by one within a moment; collect them first so that a mass
+                // deletion becomes one "Deleted N messages" notification instead of a notification per message.
+                let peerId = event.peerId
+                let isFirst = self.kittyGramPendingDeletions[peerId] == nil
+                self.kittyGramPendingDeletions[peerId, default: []].append(event)
+                if isFirst {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: { [weak self] in
+                        guard let self, let events = self.kittyGramPendingDeletions.removeValue(forKey: peerId) else {
+                            return
+                        }
+                        if events.count >= 5 {
+                            self.kittyGramPostDeletedCountNotification(events)
+                        } else {
+                            for event in events {
+                                self.kittyGramPostMessageEventNotification(event)
+                            }
+                        }
+                    })
                 }
             }
-            let title = event.authorName.isEmpty ? "KittyGram" : event.authorName
-            let kindId = event.kind == .deleted ? "deleted" : "edited"
-            kittyGramPostLocalNotification(identifier: "kittygram-\(kindId)-\(event.peerId.toInt64())-\(event.messageId)-\(Int(Date().timeIntervalSince1970))", threadIdentifier: "\(event.peerId.toInt64())", title: title, body: body, namesOnLockScreen: showNames, placeholder: isRussian ? "Новое событие" : "New event")
         })
-        
+
         self.notificationMessagesDisposable.set((context.account.stateManager.notificationMessages
         |> mapToSignal { messageList in
             return engine.data.get(EngineDataMap(
@@ -380,6 +386,11 @@ final class AuthorizedApplicationContext {
                 |> deliverOnMainQueue).start(next: { globalSettings in
                     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
                     let isRussian = presentationData.strings.primaryComponent.languageCode == "ru"
+                    // KittyGram "New Message Notifications" off: stay silent about new messages (deletions and edits
+                    // are announced separately and still come).
+                    if !KittyGramSettings.shared.bool("notifyMessages") {
+                        return
+                    }
                     for (itemMessages, _, itemNotify, _) in messageList {
                         guard itemNotify, let message = itemMessages.first, message.flags.contains(.Incoming) else {
                             continue
@@ -427,7 +438,18 @@ final class AuthorizedApplicationContext {
                         if body.count > 300 {
                             body = String(body.prefix(300)) + "…"
                         }
-                        kittyGramPostLocalNotification(identifier: "kittygram-\(message.id.peerId.toInt64())-\(message.id.id)", threadIdentifier: "\(message.id.peerId.toInt64())", title: title, body: body, namesOnLockScreen: showNames, placeholder: isRussian ? "Новое сообщение" : "New message", imagePath: KittyGramSettings.shared.notificationText && category.displayPreviews ? kittyGramNotificationImagePath(context: context, message: EngineMessage(message)) : nil)
+                        let identifier = "kittygram-\(message.id.peerId.toInt64())-\(message.id.id)"
+                        let threadIdentifier = "\(message.id.peerId.toInt64())"
+                        let placeholder = isRussian ? "Новое сообщение" : "New message"
+                        let notificationBody = body
+                        let notificationTitle = title
+                        if KittyGramSettings.shared.notificationText && category.displayPreviews {
+                            kittyGramNotificationImage(context: context, message: EngineMessage(message), completion: { imagePath in
+                                kittyGramPostLocalNotification(identifier: identifier, threadIdentifier: threadIdentifier, title: notificationTitle, body: notificationBody, namesOnLockScreen: showNames, placeholder: placeholder, imagePath: imagePath)
+                            })
+                        } else {
+                            kittyGramPostLocalNotification(identifier: identifier, threadIdentifier: threadIdentifier, title: notificationTitle, body: notificationBody, namesOnLockScreen: showNames, placeholder: placeholder)
+                        }
                     }
                 })
                 return
@@ -962,6 +984,7 @@ final class AuthorizedApplicationContext {
         self.loggedOutDisposable.dispose()
         self.inAppNotificationSettingsDisposable.dispose()
         self.notificationMessagesDisposable.dispose()
+        self.kittyGramConnectionDisposable?.dispose()
         self.termsOfServiceUpdatesDisposable.dispose()
         self.passcodeLockDisposable.dispose()
         self.passcodeStatusDisposable.dispose()
@@ -1138,15 +1161,171 @@ final class AuthorizedApplicationContext {
 }
 
 
-/// The downloaded picture of a message for its notification: the photo, or the preview frame of a video.
-private func kittyGramNotificationImagePath(context: AccountContext, message: EngineMessage) -> String? {
-    for media in message.media {
-        if let image = media as? TelegramMediaImage, let representation = largestImageRepresentation(image.representations) {
-            return context.engine.resources.completedResourcePath(id: EngineMediaResource.Id(representation.resource.id))
+extension AuthorizedApplicationContext {
+    /// "Notify About Deletions / Edits": one notification for one deleted or edited message.
+    fileprivate func kittyGramPostMessageEventNotification(_ event: KittyGramMessageEvent) {
+        let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+        let isRussian = presentationData.strings.primaryComponent.languageCode == "ru"
+        let showNames = self.inAppNotificationSettings?.displayNameOnLockscreen ?? true
+        func quoted(_ text: String) -> String {
+            if text.isEmpty {
+                return event.hasMedia ? (isRussian ? "медиа" : "media") : ""
+            }
+            let trimmed = text.count > 120 ? String(text.prefix(120)) + "…" : text
+            return "«" + trimmed + "»"
         }
-        if let file = media as? TelegramMediaFile, file.isVideo || file.isInstantVideo || file.isAnimated, let representation = largestImageRepresentation(file.previewRepresentations) {
-            return context.engine.resources.completedResourcePath(id: EngineMediaResource.Id(representation.resource.id))
+        var body: String
+        switch event.kind {
+        case .deleted:
+            body = isRussian ? "🗑 Удалил(а) сообщение" : "🗑 Deleted a message"
+            if KittyGramSettings.shared.notificationText, !quoted(event.text).isEmpty {
+                body += ": " + quoted(event.text)
+            }
+        case .edited:
+            body = isRussian ? "✏️ Изменил(а) сообщение" : "✏️ Edited a message"
+            if KittyGramSettings.shared.notificationText {
+                let oldText = quoted(event.text)
+                let newText = quoted(event.newText ?? "")
+                if !oldText.isEmpty && !newText.isEmpty {
+                    body += ": " + oldText + " → " + newText
+                } else if !newText.isEmpty {
+                    body += ": " + newText
+                }
+            }
+        }
+        let title = event.authorName.isEmpty ? "KittyGram" : event.authorName
+        let kindId = event.kind == .deleted ? "deleted" : "edited"
+        kittyGramPostLocalNotification(identifier: "kittygram-\(kindId)-\(event.peerId.toInt64())-\(event.messageId)-\(Int(Date().timeIntervalSince1970))", threadIdentifier: "\(event.peerId.toInt64())", title: title, body: body, namesOnLockScreen: showNames, placeholder: isRussian ? "Новое событие" : "New event")
+    }
+
+    /// Five or more messages deleted at once: "Deleted 7 messages" instead of seven notifications.
+    fileprivate func kittyGramPostDeletedCountNotification(_ events: [KittyGramMessageEvent]) {
+        guard let first = events.first else {
+            return
+        }
+        let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+        let isRussian = presentationData.strings.primaryComponent.languageCode == "ru"
+        let showNames = self.inAppNotificationSettings?.displayNameOnLockscreen ?? true
+        let count = events.count
+        let body: String
+        if isRussian {
+            let word: String
+            let lastTwo = count % 100
+            let last = count % 10
+            if lastTwo >= 11 && lastTwo <= 14 {
+                word = "сообщений"
+            } else if last == 1 {
+                word = "сообщение"
+            } else if last >= 2 && last <= 4 {
+                word = "сообщения"
+            } else {
+                word = "сообщений"
+            }
+            body = "🗑 Удалил(а) \(count) \(word)"
+        } else {
+            body = "🗑 Deleted \(count) messages"
+        }
+        let title = first.authorName.isEmpty ? "KittyGram" : first.authorName
+        kittyGramPostLocalNotification(identifier: "kittygram-deleted-\(first.peerId.toInt64())-\(first.messageId)-\(count)-\(Int(Date().timeIntervalSince1970))", threadIdentifier: "\(first.peerId.toInt64())", title: title, body: body, namesOnLockScreen: showNames, placeholder: isRussian ? "Новое событие" : "New event")
+    }
+}
+
+/// The picture of a message for its notification, like Telegram's: the photo, the preview frame of a video, a round
+/// video message as a circle. It is downloaded if needed; after a few seconds without it the notification goes without.
+private func kittyGramNotificationImage(context: AccountContext, message: EngineMessage, completion: @escaping (String?) -> Void) {
+    // The smallest picture that still looks sharp in the expanded notification; the largest takes too long to load.
+    func pick(_ representations: [TelegramMediaImageRepresentation]) -> TelegramMediaImageRepresentation? {
+        let sorted = representations.sorted(by: { $0.dimensions.width * $0.dimensions.height < $1.dimensions.width * $1.dimensions.height })
+        if let good = sorted.first(where: { max($0.dimensions.width, $0.dimensions.height) >= 320 }) {
+            return good
+        }
+        return sorted.last
+    }
+    let rawMessage = message._asMessage()
+    for media in message.media {
+        if let image = media as? TelegramMediaImage, let representation = pick(image.representations) {
+            let reference = ImageMediaReference.message(message: MessageReference(rawMessage), media: image).resourceReference(representation.resource)
+            kittyGramNotificationLoad(context: context, peerId: message.id.peerId, reference: reference, resource: EngineMediaResource(representation.resource), round: false, completion: completion)
+            return
+        }
+        if let file = media as? TelegramMediaFile, file.isVideo || file.isInstantVideo || file.isAnimated {
+            let round = file.isInstantVideo
+            if let representation = pick(file.previewRepresentations) {
+                let reference = FileMediaReference.message(message: MessageReference(rawMessage), media: file).resourceReference(representation.resource)
+                kittyGramNotificationLoad(context: context, peerId: message.id.peerId, reference: reference, resource: EngineMediaResource(representation.resource), round: round, completion: completion)
+                return
+            }
+            // No preview picture (common for round videos): a frame of the video if it is already saved, otherwise
+            // the tiny blurred thumbnail that comes with the message.
+            if let videoPath = context.engine.resources.completedResourcePath(id: EngineMediaResource.Id(file.resource.id), pathExtension: "mp4") {
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let generator = AVAssetImageGenerator(asset: AVURLAsset(url: URL(fileURLWithPath: videoPath)))
+                    generator.appliesPreferredTrackTransform = true
+                    generator.maximumSize = CGSize(width: 640.0, height: 640.0)
+                    let image = (try? generator.copyCGImage(at: CMTime(seconds: 0.1, preferredTimescale: 600), actualTime: nil)).flatMap { UIImage(cgImage: $0) }
+                    let path = image.flatMap { kittyGramWriteNotificationImage($0, round: round) }
+                    DispatchQueue.main.async {
+                        completion(path)
+                    }
+                }
+                return
+            }
+            if let tinyData = file.immediateThumbnailData, let decoded = decodeTinyThumbnail(data: tinyData), let image = UIImage(data: decoded) {
+                completion(kittyGramWriteNotificationImage(image, round: round))
+                return
+            }
         }
     }
-    return nil
+    completion(nil)
+}
+
+private func kittyGramNotificationLoad(context: AccountContext, peerId: EnginePeer.Id, reference: MediaResourceReference, resource: EngineMediaResource, round: Bool, completion: @escaping (String?) -> Void) {
+    let fetchDisposable = context.engine.resources.fetch(reference: reference, userLocation: .peer(peerId), userContentType: .image).start()
+    let _ = (context.engine.resources.data(resource: resource)
+    |> filter { data -> Bool in
+        return data.isComplete
+    }
+    |> map { data -> String? in
+        return data.path
+    }
+    |> take(1)
+    |> timeout(6.0, queue: Queue.concurrentDefaultQueue(), alternate: .single(nil))
+    |> deliverOn(Queue.concurrentDefaultQueue())).start(next: { path in
+        fetchDisposable.dispose()
+        var result: String?
+        if let path, let image = UIImage(contentsOfFile: path) {
+            result = kittyGramWriteNotificationImage(image, round: round)
+        }
+        DispatchQueue.main.async {
+            completion(result)
+        }
+    })
+}
+
+/// Writes the picture for a notification attachment; a round video message is cut into a circle like in the chat.
+private func kittyGramWriteNotificationImage(_ image: UIImage, round: Bool) -> String? {
+    if !round {
+        guard let data = image.jpegData(compressionQuality: 0.85) else {
+            return nil
+        }
+        let path = NSTemporaryDirectory() + "kittygram-preview-\(UUID().uuidString).jpg"
+        return (try? data.write(to: URL(fileURLWithPath: path))) != nil ? path : nil
+    }
+    let side = min(image.size.width, image.size.height)
+    if side <= 0.0 {
+        return nil
+    }
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1.0
+    format.opaque = false
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
+    let circle = renderer.image { _ in
+        UIBezierPath(ovalIn: CGRect(x: 0.0, y: 0.0, width: side, height: side)).addClip()
+        image.draw(in: CGRect(x: (side - image.size.width) / 2.0, y: (side - image.size.height) / 2.0, width: image.size.width, height: image.size.height))
+    }
+    guard let data = circle.pngData() else {
+        return nil
+    }
+    let path = NSTemporaryDirectory() + "kittygram-preview-\(UUID().uuidString).png"
+    return (try? data.write(to: URL(fileURLWithPath: path))) != nil ? path : nil
 }

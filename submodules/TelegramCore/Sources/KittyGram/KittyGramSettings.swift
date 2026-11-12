@@ -75,6 +75,7 @@ public final class KittyGramSettings: @unchecked Sendable {
         "disableAds": false,
         "backgroundMode": false,
         "backgroundWatchdog": true,
+        "notifyMessages": true,
         "notificationText": true,
         "confirmSticker": false,
         "confirmGif": false,
