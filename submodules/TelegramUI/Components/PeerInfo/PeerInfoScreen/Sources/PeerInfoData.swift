@@ -1296,7 +1296,22 @@ func peerInfoScreenData(
                     }
                     subscriber.putNext(data)
                 }
-                let disposable = (context.account.viewTracker.peerView(userPeerId, updateData: false)
+                // KittyGram: in ghost mode the own profile shows the status other people really see.
+                let kittyGramOwnStatus = userPeerId == context.account.peerId && KittyGramSettings.shared.hideOnline
+                let kittyGramOwnStatusSignal: Signal<StatusInputData?, NoError>
+                if kittyGramOwnStatus {
+                    kittyGramOwnStatusSignal = context.engine.messages.kittyGramOwnPresence()
+                    |> map { presence -> StatusInputData? in
+                        if let presence {
+                            return .presence(presence)
+                        } else {
+                            return nil
+                        }
+                    }
+                } else {
+                    kittyGramOwnStatusSignal = .single(nil)
+                }
+                let disposable = (combineLatest(context.account.viewTracker.peerView(userPeerId, updateData: false)
                 |> map { view -> StatusInputData in
                     guard let user = view.peers[userPeerId] as? TelegramUser else {
                         return .none
@@ -1317,6 +1332,10 @@ func peerInfoScreenData(
                         return .none
                     }
                     return .presence(presence)
+                }
+                |> distinctUntilChanged, kittyGramOwnStatusSignal)
+                |> map { peerValue, ownValue -> StatusInputData in
+                    return ownValue ?? peerValue
                 }
                 |> distinctUntilChanged).start(next: { inputData in
                     switch inputData {

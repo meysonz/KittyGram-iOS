@@ -30,3 +30,25 @@ public extension TelegramEngine.Messages {
         }
     }
 }
+
+public extension TelegramEngine.Messages {
+    /// The account's own status as other people see it. Telegram never stores it (the profile always says "online"),
+    /// which is wrong in ghost mode; ask the server instead, again every minute while someone listens.
+    func kittyGramOwnPresence() -> Signal<TelegramUserPresence?, NoError> {
+        let network = self.account.network
+        let once: Signal<TelegramUserPresence?, NoError> = network.request(Api.functions.users.getUsers(id: [.inputUserSelf]))
+        |> map { users -> TelegramUserPresence? in
+            for user in users {
+                if let presence = TelegramUserPresence(apiUser: user) {
+                    return presence
+                }
+            }
+            return nil
+        }
+        |> `catch` { _ -> Signal<TelegramUserPresence?, NoError> in
+            return .single(nil)
+        }
+        return (once |> then(Signal<TelegramUserPresence?, NoError>.complete() |> delay(60.0, queue: Queue.concurrentDefaultQueue())))
+        |> restart
+    }
+}

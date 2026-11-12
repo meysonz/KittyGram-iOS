@@ -1325,7 +1325,12 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 let subtitleColor: UIColor
                 subtitleColor = .white
                 
-                subtitleStringText = presentationData.strings.Presence_online
+                // KittyGram: in ghost mode show the status other people really see ("last seen ..."), not "online".
+                if KittyGramSettings.shared.hideOnline, let statusData {
+                    subtitleStringText = statusData.text
+                } else {
+                    subtitleStringText = presentationData.strings.Presence_online
+                }
                 subtitleAttributes = MultiScaleTextState.Attributes(font: Font.regular(17.0), color: subtitleColor)
                 smallSubtitleAttributes = MultiScaleTextState.Attributes(font: Font.regular(16.0), color: .white, shadowColor: titleShadowColor)
                 
